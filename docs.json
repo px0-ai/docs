@@ -16,6 +16,10 @@
           "index",
           "template-syntax"
         ]
+      },
+      {
+        "group": "API Reference",
+        "openapi": "openapi.yaml"
       }
     ]
   },
@@ -39,6 +43,7 @@
   "contextual": {
     "options": [
       "copy",
+      "download-spec",
       "view",
       "chatgpt",
       "claude",
