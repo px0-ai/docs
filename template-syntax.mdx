@@ -1,0 +1,301 @@
+---
+title: Template Syntax
+description: A complete guide to px0 syntax, structure, and formatting for dynamic prompt templates.
+---
+
+When you need to scale your prompting, writing a new prompt for every unique scenario is not sustainable. Prompt templates solve this by letting you define a single, reusable blueprint that you can dynamically populate with structured data from a JSON payload. Each variable field in your template maps directly to a key in your JSON input, giving you full control over the generated output.
+
+## Insert Values
+
+The most fundamental pattern is inserting a dynamic value directly into your prompt. Use the `{{.key}}` syntax to reference a specific field from your JSON payload.
+
+### Input
+
+```json
+{
+  "name": "Alice",
+  "topic": "refunds"
+}
+```
+
+### Template
+
+```text
+You are a customer support agent.
+
+Greet {{.name}} and help them with {{.topic}}.
+```
+
+### Result
+
+```text
+You are a customer support agent.
+
+Greet Alice and help them with refunds.
+```
+
+To ensure seamless integration, the key name in your template must match the key name in your JSON payload exactly.
+
+If the JSON payload does not contain the specified key, the template engine safely renders `<no value>` instead of raising an error or failing the execution.
+
+---
+
+## Conditional Logic
+
+Not all instructions apply to every scenario. You can conditionally include or exclude sections of your prompt by using `if`, `else`, and `end` blocks. This ensures your model only receives instructions relevant to the current context, saving context window tokens and reducing model confusion.
+
+### Input
+
+```json
+{
+  "name": "Bob",
+  "isPremium": true
+}
+```
+
+### Template
+
+```text
+Hello {{.name}}.
+
+{{if .isPremium}}
+This customer has priority support.
+Respond with the fastest available resolution.
+{{else}}
+This customer is on the standard plan.
+Offer upgrade options when relevant.
+{{end}}
+```
+
+### Result
+
+```text
+Hello Bob.
+
+This customer has priority support.
+Respond with the fastest available resolution.
+```
+
+While conditional blocks are ideal for boolean flags, they also serve as presence checks.
+
+The engine treats empty strings, empty lists, `nil`, and zero values as false, allowing you to safely handle optional user inputs.
+
+---
+
+## Iterate Over Lists
+
+When your input data contains an array of items, use the `range` block to repeat a prompt segment for each element. This is useful for passing batch tasks, search results, or user options directly into the prompt.
+
+### Input
+
+```json
+{
+  "tasks": [
+    "password reset",
+    "billing question",
+    "account deletion"
+  ]
+}
+```
+
+### Template
+
+```text
+The user needs help with:
+
+{{range .tasks}}
+- {{.}}
+{{end}}
+
+Address each item individually.
+```
+
+### Result
+
+```text
+The user needs help with:
+
+- password reset
+- billing question
+- account deletion
+
+Address each item individually.
+```
+
+Within the scope of a `range` block, the dot notation `{{.}}` refers directly to the current item being processed.
+
+---
+
+## Iterate Over Structured Lists
+
+Lists often contain structured objects rather than simple text values. Within a `range` loop, you can access the fields of each individual object directly using dot notation.
+
+### Input
+
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "text": "How do I reset my password?"
+    },
+    {
+      "role": "assistant",
+      "text": "Click the forgot password link."
+    }
+  ]
+}
+```
+
+### Template
+
+```text
+Conversation history:
+
+{{range .messages}}
+{{.role}}: {{.text}}
+{{end}}
+
+Write the next response.
+```
+
+### Result
+
+```text
+Conversation history:
+
+user: How do I reset my password?
+assistant: Click the forgot password link.
+
+Write the next response.
+```
+
+This structure is highly effective for injecting multi-turn conversation histories, support tickets, search database results, and other complex data records.
+
+---
+
+## Access Nested Data
+
+JSON payloads frequently contain hierarchical, nested objects. You can navigate these deeper data structures directly within your prompt template by chaining keys with dot notation.
+
+### Input
+
+```json
+{
+  "user": {
+    "name": "Carol",
+    "status": {
+      "tier": "gold"
+    }
+  }
+}
+```
+
+### Template
+
+```text
+Customer: {{.user.name}}
+Membership: {{.user.status.tier}}
+```
+
+### Result
+
+```text
+Customer: Carol
+Membership: gold
+```
+
+You can extend this chain as deeply as your database schema or nested JSON structure requires.
+
+---
+
+## Provide Default Values
+
+To protect your prompts from incomplete or missing input fields, you can define fallback values using the `default` function. This prevents rendering empty spaces or generic text when a user or upstream system provides sparse data.
+
+### Input
+
+```json
+{
+  "tone": ""
+}
+```
+
+### Template
+
+```text
+Use a {{default "helpful and professional" .tone}} tone.
+```
+
+### Result
+
+```text
+Use a helpful and professional tone.
+```
+
+This mechanism guarantees that your prompts remain reliable and fully structured even when handling optional parameters.
+
+You can apply defaults to preserve fallback instructions for system roles, tones, response languages, or formatting preferences.
+
+---
+
+## Comprehensive Example
+
+Real-world prompts often combine multiple design patterns to handle complex application logic. The following example demonstrates how value insertion, conditional blocks, loops, and default fallbacks work together to form a highly resilient and adaptable prompt template.
+
+### Input
+
+```json
+{
+  "role": "expert customer advisor",
+  "userName": "Dana",
+  "isPremium": false,
+  "tone": "empathetic",
+  "topics": [
+    "shipping delay",
+    "damaged packaging"
+  ]
+}
+```
+
+### Template
+
+```text
+You are an {{default "assistant" .role}}.
+
+Customer: {{.userName}}
+
+{{if .isPremium}}
+This is a priority account.
+Provide the fastest resolution path.
+{{else}}
+Handle the request using standard support procedures.
+{{end}}
+
+Topics to address:
+
+{{range .topics}}
+- {{.}}
+{{end}}
+
+Respond in an {{default "professional" .tone}} tone.
+```
+
+### Result
+
+```text
+You are an expert customer advisor.
+
+Customer: Dana
+
+Handle the request using standard support procedures.
+
+Topics to address:
+
+- shipping delay
+- damaged packaging
+
+Respond in an empathetic tone.
+```
+
+By combining these building blocks, you can construct robust prompt templates that dynamically adapt to any incoming payload while maintaining consistent instructions for the language model.

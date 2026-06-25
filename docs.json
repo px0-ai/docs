@@ -1,0 +1,56 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "px[0] Docs",
+  "colors": {
+    "primary": "#fbbf24",
+    "light": "#ca8a04",
+    "dark": "#fbbf24"
+  },
+  "favicon": "/favicon.ico",
+  "navigation": {
+    "pages": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "index",
+          "template-syntax"
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/px0-logo-light.png",
+    "dark": "/logo/px0-logo-dark.png"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Support",
+        "href": "mailto:arpit@arpitbhayani.me"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "px[0] Home",
+      "href": "https://px0.ai"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/px0-ai"
+    }
+  }
+}
