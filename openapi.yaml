@@ -47,7 +47,7 @@ paths:
         - Fails with 400 Bad Request if email or password are empty, password is shorter than 8 characters, or password does not meet complexity requirements.
         - Fails with 400 Bad Request if email format is invalid.
         - Fails with 409 Conflict if email is already registered.
-        - If admin registers a user (authenticated with Bearer token), team_id is required. The specified team must belong to an organization, and the admin must belong to a team in that same organization.
+        - If admin registers a user (authenticated with Bearer token), they can optionally pass team_id to join an existing team (which must belong to an organization that the admin belongs to). If team_id is not passed, a Default Org and Default Team are created automatically.
         - If public user registers (unauthenticated), team_id is forbidden.
         - If Bearer token is provided but is invalid, expired, unverified, or not an admin, returns 401/403 appropriately.
       x-test-coverage:
@@ -108,10 +108,6 @@ paths:
                   summary: Password lacks complexity
                   value:
                     error: password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character
-                missing_team_id:
-                  summary: Admin registering a user without team_id
-                  value:
-                    error: admin must pass team_id when registering a user
                 team_no_org:
                   summary: Specified team does not belong to any organization
                   value:
@@ -404,6 +400,129 @@ paths:
                 $ref: '#/components/schemas/APIError'
               example:
                 error: unauthorized
+  /v1/auth/password-reset/trigger:
+    post:
+      summary: Trigger Password Reset
+      description: Generates a password reset code and sends it via email to the user.
+      operationId: triggerPasswordReset
+      tags:
+        - Auth
+      x-edge-cases:
+        - Fails with 400 Bad Request if email is missing.
+        - Fails with 404 Not Found if user with specified email does not exist.
+      x-test-coverage:
+        - 'TestPasswordReset_Flow: Verifies triggering password reset and completing it successfully.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerPasswordResetRequest'
+      responses:
+        '200':
+          description: Password reset email sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: password reset email sent successfully
+                required:
+                  - message
+        '400':
+          description: Missing email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: email is required
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: user not found
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: internal error
+  /v1/auth/password-reset/reset:
+    post:
+      summary: Reset Password
+      description: Resets a user's password using a valid reset code and a new password, deriving the user from the code in the database.
+      operationId: resetPassword
+      tags:
+        - Auth
+      x-edge-cases:
+        - Fails with 400 Bad Request if code or new password is empty.
+        - Fails with 400 Bad Request if new password is too short or too weak.
+        - Fails with 400 Bad Request if reset code is invalid or expired.
+      x-test-coverage:
+        - 'TestPasswordReset_Flow: Verifies complete password reset flow.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: password reset successfully
+                  email:
+                    type: string
+                    format: email
+                    example: user@example.com
+                required:
+                  - message
+                  - email
+        '400':
+          description: Invalid input or invalid/expired code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              examples:
+                missing_fields:
+                  summary: Missing code or password
+                  value:
+                    error: code and new_password are required
+                short_password:
+                  summary: Password too short
+                  value:
+                    error: password must be at least 8 characters
+                weak_password:
+                  summary: Password lacks complexity
+                  value:
+                    error: password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character
+                invalid_code:
+                  summary: Reset code is invalid or expired
+                  value:
+                    error: invalid or expired password reset code
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: internal error
   /v1/api-keys:
     post:
       summary: Create an API Key
@@ -546,15 +665,77 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+  /v1/me/orgs:
+    get:
+      summary: List User Organizations
+      description: Returns a list of organizations the authenticated user belongs to.
+      operationId: listUserOrgs
+      tags:
+        - Organizations
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: A list of organizations with roles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrganizationWithRole'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/me/inbox:
+    get:
+      summary: Get Admin Inbox
+      description: Returns a list of pending join requests that the authenticated user is authorized to approve or reject.
+      operationId: getAdminInbox
+      tags:
+        - Teams
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: A list of pending join requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inbox:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InboxItem'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
   /v1/orgs/{orgID}/teams:
     post:
       summary: Create Team
-      description: Creates a new team under a specific organization. Requires admin privileges.
+      description: Creates a new team under a specific organization. Requires Org Admin privileges (admin on the Default Team). Team admins or editors of other custom teams are not authorized to create teams.
       operationId: createTeam
       tags:
         - Teams
       security:
         - BearerAuth: []
+      x-edge-cases:
+        - Requires Org Admin privileges (admin on the Default Team).
+        - Team admins or editors of other custom teams are forbidden from creating teams.
+        - Fails with 400 if name is empty.
+        - Fails with 409 if the team name already exists under the target organization.
+      x-test-coverage:
+        - 'TestRolesAndPermissions: Verifies that a Team Admin of a custom team is forbidden from creating a team (returns 403 Forbidden).'
+        - 'TestRolesAndPermissions: Verifies that an Org Admin (admin of Default Team) can create a team (returns 201 Created).'
       parameters:
         - name: orgID
           in: path
@@ -603,15 +784,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+    get:
+      summary: List Org Teams
+      description: Returns a list of all teams within the specified organization.
+      operationId: listOrgTeams
+      tags:
+        - Teams
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: orgID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the organization to list teams for.
+      responses:
+        '200':
+          description: A list of teams
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  teams:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Team'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
   /v1/teams/{id}:
     put:
       summary: Update Team
-      description: Updates an existing team. Requires admin privileges.
+      description: Updates an existing team. Requires Org Admin, Team Admin, or Team Editor privileges. Team Members (viewers) are not authorized.
       operationId: updateTeam
       tags:
         - Teams
       security:
         - BearerAuth: []
+      x-edge-cases:
+        - Requires Org Admin, Team Admin, or Team Editor privileges.
+        - Team Members (viewers) are forbidden from updating team details.
+        - Returns 404 if the team does not exist.
+        - Returns 409 if the updated team name already exists under the target organization.
+      x-test-coverage:
+        - 'TestRolesAndPermissions: Verifies that a Viewer (Team Member) cannot update a team (returns 403 Forbidden).'
+        - 'TestRolesAndPermissions: Verifies that an Editor (Team Editor) can update a team (returns 200 OK).'
+        - 'TestRolesAndPermissions: Verifies that an Admin (Team Admin) can update a team (returns 200 OK).'
       parameters:
         - name: id
           in: path
@@ -669,6 +899,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+    delete:
+      summary: Delete Team
+      description: Deletes an existing team. Requires Org Admin, Team Admin, or Team Editor privileges. Team Members (viewers) are not authorized.
+      operationId: deleteTeam
+      tags:
+        - Teams
+      security:
+        - BearerAuth: []
+      x-edge-cases:
+        - Requires Org Admin, Team Admin, or Team Editor privileges.
+        - Team Members (viewers) are forbidden from deleting the team.
+        - Returns 404 if the team does not exist.
+      x-test-coverage:
+        - 'TestRolesAndPermissions: Verifies that a Viewer (Team Member) cannot delete a team (returns 403 Forbidden).'
+        - 'TestRolesAndPermissions: Verifies that an Editor (Team Editor) can delete a team (returns 204 No Content).'
+        - 'TestRolesAndPermissions: Verifies that an Admin (Team Admin) can delete a team (returns 204 No Content).'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Team deleted successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
   /v1/teams/{id}/members:
     get:
       summary: List Team Members
@@ -838,6 +1100,117 @@ paths:
           description: Forbidden
         '404':
           description: Not Found
+  /v1/teams/{id}/join-requests:
+    post:
+      summary: Request to Join Team
+      description: Creates a pending request for the authenticated user to join a specific team.
+      operationId: createJoinRequest
+      tags:
+        - Teams
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the team to request to join.
+      responses:
+        '201':
+          description: Join request created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamJoinRequest'
+        '400':
+          description: Bad Request (already a member)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Team Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: Conflict (already has a pending request)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/join-requests/{id}:
+    put:
+      summary: Resolve Join Request
+      description: Approves or rejects a pending join request.
+      operationId: resolveJoinRequest
+      tags:
+        - Teams
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the join request to resolve.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - approved
+                    - rejected
+                  example: approved
+      responses:
+        '200':
+          description: Resolved request details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamJoinRequest'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden (not authorized to approve)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Join Request Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
   /v1/orgs:
     post:
       summary: Create Organization
@@ -949,6 +1322,129 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+  /v1/orgs/{orgID}/people:
+    get:
+      summary: List Org People
+      description: Returns a paginated list of distinct people who are members of any team in the organization.
+      operationId: listOrgPeople
+      tags:
+        - Organizations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: orgID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the organization to list people for.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Paginated list of people
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - people
+                  - page
+                  - limit
+                  - total
+                properties:
+                  people:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  total:
+                    type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Organization Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/orgs/{orgID}/members/{userID}:
+    delete:
+      summary: Remove Member from Organization
+      description: Removes a user from an organization by removing them from all teams in that organization. Requires Org Admin privileges.
+      operationId: removeOrgMember
+      tags:
+        - Organizations
+      security:
+        - BearerAuth: []
+      x-edge-cases:
+        - Only Org Admins and system administrators can remove members from an organization.
+        - Returns 403 Forbidden if a standard user tries to remove a member.
+        - Returns 404 Not Found if the user is not a member of the organization.
+      x-test-coverage:
+        - 'TestOrg_RemoveMember: Verifies that an Org Admin can successfully remove a member from the organization, removing them from all teams.'
+        - 'TestOrg_RemoveMember: Verifies that a standard user cannot remove a member (returns 403 Forbidden).'
+        - 'TestOrg_RemoveMember: Verifies that removing a user who is not a member of the organization returns 404 Not Found.'
+      parameters:
+        - name: orgID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the organization.
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the user to remove from the organization.
+      responses:
+        '204':
+          description: User successfully removed from the organization
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
   /v1/teams/{teamID}/prompts:
     post:
       summary: Create a Prompt
@@ -1035,6 +1531,12 @@ paths:
             type: string
             format: uuid
           description: The ID of the team.
+        - name: archived
+          in: query
+          required: false
+          description: Optional boolean to filter prompts by archive state.
+          schema:
+            type: boolean
       x-test-coverage:
         - 'TestListPrompts: Verifies listing populated prompt containers.'
         - 'TestListPrompts_Empty: Verifies that listing when empty returns an empty array.'
@@ -1068,6 +1570,73 @@ paths:
                 $ref: '#/components/schemas/APIError'
               example:
                 error: internal error
+  /v1/prompts:
+    get:
+      summary: List all prompts with team filter
+      description: Returns a list of prompts. If team_id query parameter is not provided, returns an empty list by default. Users can filter by a team they are a member of.
+      operationId: listAllPrompts
+      tags:
+        - Prompts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: team_id
+          in: query
+          required: false
+          description: Optional UUID of the team to filter prompts (alias of team).
+          schema:
+            type: string
+            format: uuid
+        - name: team
+          in: query
+          required: false
+          description: Optional UUID of the team to filter prompts (alias of team_id).
+          schema:
+            type: string
+            format: uuid
+        - name: archived
+          in: query
+          required: false
+          description: Optional boolean to filter prompts by archive state.
+          schema:
+            type: boolean
+      x-edge-cases:
+        - By default with no team_id query parameter, returns an empty list of prompts.
+        - If a team_id is provided, checks if the user is a member of that team, otherwise returns 403 Forbidden.
+      x-test-coverage:
+        - 'TestListAllPrompts: Verifies that no team_id returns 200 with an empty list.'
+        - 'TestListAllPrompts: Verifies that a valid team_id returns 200 with prompts of that team.'
+        - 'TestListAllPrompts: Verifies that an unallowed team_id returns 403 Forbidden.'
+      responses:
+        '200':
+          description: A list of prompts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prompts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Prompt'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
   /v1/prompts/{id}:
     get:
       summary: Get a Prompt
@@ -1133,26 +1702,122 @@ paths:
                 $ref: '#/components/schemas/APIError'
               example:
                 error: internal error
-    delete:
-      summary: Delete a Prompt
-      description: Deletes a specific prompt container along with all its template versions.
-      operationId: deletePrompt
+    put:
+      summary: Update a Prompt
+      description: Updates the description of a specific prompt by its unique UUID.
+      operationId: updatePrompt
+      tags:
+        - Prompts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique UUID of the prompt.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePromptRequest'
+      x-edge-cases:
+        - 'Forbidden: Attempting to update a prompt with viewer permissions.'
+        - 'NotFound: Attempting to update a non-existent prompt ID or a prompt under an unauthorized team.'
+      x-test-coverage:
+        - 'TestUpdatePrompt_Success: Verifies updating description with editor token.'
+        - 'TestUpdatePrompt_ViewerForbidden: Verifies viewer gets a 403 response.'
+        - 'TestUpdatePrompt_NotFound: Verifies 404 response on missing prompt ID.'
+      responses:
+        '200':
+          description: Prompt updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prompt:
+                    $ref: '#/components/schemas/Prompt'
+                required:
+                  - prompt
+        '400':
+          description: Invalid input or invalid UUID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: invalid request body
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: unauthorized
+        '403':
+          description: Forbidden - Viewer or unauthorized team member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: forbidden
+        '404':
+          description: Prompt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: prompt not found
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/prompts/{id}/archive:
+    post:
+      summary: Archive a Prompt
+      description: Archives a specific prompt container, setting `status` to 'archived'. The prompt still exists in the system and people can call it and use it, so a prompt is never deleted. Requires Org Admin or Team Admin privileges (GitHub repo owner model). Team Editors and Team Members are not authorized to archive prompts.
+      operationId: archivePrompt
       tags:
         - Prompts
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
+      x-edge-cases:
+        - Only Org Admins and Team Admins can archive a prompt.
+        - Team Editors and Team Members (viewers) are forbidden from archiving prompts.
+      x-test-coverage:
+        - 'TestArchivePrompt_Permissions: Verifies that a Team Member (viewer) cannot archive a prompt (returns 403 Forbidden).'
+        - 'TestArchivePrompt_Permissions: Verifies that a Team Editor cannot archive a prompt (returns 403 Forbidden).'
+        - 'TestArchivePrompt_Permissions: Verifies that a Team Admin can successfully archive a prompt (returns 200 OK with prompt details).'
       parameters:
         - name: id
           in: path
           required: true
-          description: The unique UUID of the prompt to delete.
+          description: The unique UUID of the prompt to archive.
           schema:
             type: string
             format: uuid
       responses:
-        '204':
-          description: Prompt successfully deleted
+        '200':
+          description: Prompt successfully archived
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prompt:
+                    $ref: '#/components/schemas/Prompt'
+                required:
+                  - prompt
         '400':
           description: Invalid UUID format
           content:
@@ -1169,6 +1834,14 @@ paths:
                 $ref: '#/components/schemas/APIError'
               example:
                 error: unauthorized
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: forbidden
         '404':
           description: Prompt not found
           content:
@@ -1365,6 +2038,22 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: tags
+          in: query
+          required: false
+          description: Optional comma-separated list of tags to filter prompt versions.
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Optional status to filter prompt versions by (draft, live, archived).
+          schema:
+            type: string
+            enum:
+              - draft
+              - live
+              - archived
       x-test-coverage:
         - 'TestListVersions: Verifies active versions listing.'
       responses:
@@ -1418,9 +2107,9 @@ paths:
         - name: version
           in: path
           required: true
-          description: Version sequence number.
+          description: Version sequence number (integer) or version tag (string).
           schema:
-            type: integer
+            type: string
       x-test-coverage:
         - 'TestGetVersion: Verifies details retrieval of specific version.'
         - 'TestGetVersion_NotFound: Verifies 404 response on missing version sequence number.'
@@ -1482,9 +2171,9 @@ paths:
         - name: version
           in: path
           required: true
-          description: Version sequence number to update.
+          description: Version sequence number (integer) or version tag (string) to update.
           schema:
-            type: integer
+            type: string
       x-edge-cases:
         - Fails with 422 Unprocessable Entity if the version status is not 'draft' (e.g. attempting to update a live/archived template).
       x-test-coverage:
@@ -1540,13 +2229,12 @@ paths:
                 $ref: '#/components/schemas/APIError'
               example:
                 error: only draft versions can be modified
-  /v1/prompts/{id}/versions/{version}/publish:
-    post:
-      summary: Publish Prompt Version
+    delete:
+      summary: Delete Prompt Version Draft
       description: |
-        Publishes a draft version of the prompt template, marking it as 'live'.
-        This automatically updates any pre-existing 'live' version to 'archived', maintaining exactly one active live prompt.
-      operationId: publishVersion
+        Deletes a specific prompt template version.
+        Only versions currently in the 'draft' status may be deleted.
+      operationId: deletePromptVersion
       tags:
         - Prompts
       security:
@@ -1563,19 +2251,86 @@ paths:
         - name: version
           in: path
           required: true
-          description: Version sequence number to publish.
+          description: Version sequence number (integer) or version tag (string) to delete.
           schema:
-            type: integer
+            type: string
       x-edge-cases:
-        - Switches previous live versions to archived status automatically.
-        - Returns 422 if the specified version is already 'live'.
+        - Fails with 422 Unprocessable Entity if the version status is not 'draft' (e.g. attempting to delete a live/archived template).
       x-test-coverage:
-        - 'TestPublishVersion: Verifies that status changes to ''live'' and published_at gets populated.'
-        - 'TestPublishVersion_ArchivesPreviousLive: Verifies that publishing v2 transitions v1 status to archived.'
-        - 'TestPublishVersion_AlreadyLive: Verifies republishing a live template returns 422.'
+        - 'TestDeleteVersion_Draft: Verifies deletion of specific draft version returns 204.'
+        - 'TestDeleteVersion_LiveVersionRejected: Verifies that deleting a published live template version fails with 422 and ''only draft versions can be deleted''.'
+      responses:
+        '204':
+          description: Version deleted successfully
+        '400':
+          description: Invalid path formatting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: invalid version number
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: unauthorized
+        '404':
+          description: Version not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: version not found
+        '422':
+          description: Only draft versions can be deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: only draft versions can be deleted
+  /v1/prompts/{id}/versions/{version}/promote:
+    post:
+      summary: Promote Prompt Version
+      description: |
+        Promotes a version of the prompt template along the lifecycle: draft -> stable -> live.
+        Promoting from draft makes it stable (read-only). Promoting from stable makes it live.
+        When promoting a version to live, any previous live version is demoted to stable.
+      operationId: promoteVersion
+      tags:
+        - Prompts
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique prompt UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: version
+          in: path
+          required: true
+          description: Version sequence number (integer) or version tag (string) to promote.
+          schema:
+            type: string
+      x-edge-cases:
+        - Promotes draft to stable, or stable to live.
+        - Switches previous live versions to stable status automatically.
+        - Returns 422 if the specified version is already live or archived.
+      x-test-coverage:
+        - 'TestPromoteVersion: Verifies promotion path draft -> stable -> live.'
+        - 'TestPromoteVersion_DemotesPreviousLive: Verifies demoting previous live version to stable.'
       responses:
         '200':
-          description: Version published successfully
+          description: Version promoted successfully
           content:
             application/json:
               schema:
@@ -1610,13 +2365,225 @@ paths:
               example:
                 error: version not found
         '422':
-          description: Publishing error
+          description: Promotion error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
               example:
-                error: only draft versions can be modified
+                error: cannot promote version
+  /v1/prompts/{id}/versions/{version}/demote:
+    post:
+      summary: Demote Prompt Version
+      description: Demotes a live prompt version to stable (making it inactive but remaining read-only).
+      operationId: demoteVersion
+      tags:
+        - Prompts
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique prompt UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: version
+          in: path
+          required: true
+          description: Version sequence number (integer) or version tag (string) to demote.
+          schema:
+            type: string
+      x-edge-cases:
+        - Returns 422 if version is not live.
+      x-test-coverage:
+        - 'TestDemoteVersion_Success: Verifies demoting live version to stable.'
+      responses:
+        '200':
+          description: Version demoted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    $ref: '#/components/schemas/PromptVersion'
+                required:
+                  - version
+        '400':
+          description: Bad parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: invalid version number
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: unauthorized
+        '404':
+          description: Version not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: version not found
+        '422':
+          description: Demotion error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: only live versions can be demoted
+  /v1/prompts/{id}/versions/{version}/archive:
+    post:
+      summary: Archive Prompt Version
+      description: Archives a prompt version, marking its status as archived.
+      operationId: archiveVersion
+      tags:
+        - Prompts
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique prompt UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: version
+          in: path
+          required: true
+          description: Version sequence number (integer) or version tag (string) to archive.
+          schema:
+            type: string
+      x-edge-cases:
+        - Returns 422 if version is already archived.
+      x-test-coverage:
+        - 'TestArchiveVersion_Success: Verifies archiving a version.'
+      responses:
+        '200':
+          description: Version archived successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    $ref: '#/components/schemas/PromptVersion'
+                required:
+                  - version
+        '400':
+          description: Bad parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: invalid version number
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: unauthorized
+        '404':
+          description: Version not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: version not found
+        '422':
+          description: Archiving error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: version is already archived
+  /v1/prompts/{id}/versions/{version}/duplicate:
+    post:
+      summary: Duplicate Prompt Version
+      description: |
+        Copies the specified prompt version's template to create a new prompt version in draft state.
+        This operation does not copy any associated payloads, only the prompt template and other metadata.
+      operationId: duplicateVersion
+      tags:
+        - Prompts
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique prompt UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: version
+          in: path
+          required: true
+          description: Version sequence number (integer) or version tag (string) to duplicate from.
+          schema:
+            type: string
+      x-edge-cases:
+        - Returns 404 if source version or prompt is not found.
+        - Returns 401 if user is unauthorized.
+      x-test-coverage:
+        - 'TestDuplicateVersion_Success: Verifies duplicating a version creates a new draft version.'
+        - 'TestDuplicateVersion_Errors: Verifies error responses for invalid prompt, missing version, etc.'
+      responses:
+        '201':
+          description: Prompt version duplicated and new draft version created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    $ref: '#/components/schemas/PromptVersion'
+                required:
+                  - version
+        '400':
+          description: Bad parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: invalid version number
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: unauthorized
+        '404':
+          description: Version or prompt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+              example:
+                error: version not found
   /v1/prompts/{id}/versions/{version}/render:
     post:
       summary: Render Specific Prompt Version
@@ -1638,9 +2605,9 @@ paths:
         - name: version
           in: path
           required: true
-          description: Version sequence number to render.
+          description: Version sequence number (integer) or version tag (string) to render.
           schema:
-            type: integer
+            type: string
       x-test-coverage:
         - 'TestRenderVersion_Draft: Verifies that rendering works on draft templates.'
         - 'TestRenderVersion_NotFound: Verifies 404 response if the requested version sequence number does not exist.'
@@ -1689,6 +2656,434 @@ paths:
                 $ref: '#/components/schemas/APIError'
               example:
                 error: 'template execution failed: ...'
+  /v1/prompts/{id}/versions/{version}/tags:
+    post:
+      summary: Attach/Set Version Tag
+      description: Attaches a unique string tag (e.g. 'prod') to the specified prompt version, replacing the tag on any other version of this prompt if it was already assigned.
+      operationId: setVersionTag
+      tags:
+        - Prompts
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique prompt UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: version
+          in: path
+          required: true
+          description: Version sequence number (integer) or version tag (string) to tag.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tag:
+                  type: string
+                  description: Tag string (alphanumeric, dots, dashes, underscores).
+                  example: prod
+                  maxLength: 50
+              required:
+                - tag
+      responses:
+        '200':
+          description: Tag attached successfully. Returns the updated version.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    $ref: '#/components/schemas/PromptVersion'
+                required:
+                  - version
+        '400':
+          description: Invalid request or tag format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Prompt or version not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/prompts/{id}/tags:
+    get:
+      summary: List Prompt Version Tags
+      description: Lists all tags associated with versions of this prompt.
+      operationId: listVersionTags
+      tags:
+        - Prompts
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique prompt UUID.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of prompt tags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tag:
+                          type: string
+                        version:
+                          type: integer
+                      required:
+                        - tag
+                        - version
+                required:
+                  - tags
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Prompt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/prompts/{id}/tags/{tag}:
+    delete:
+      summary: Remove Version Tag
+      description: Removes/deletes the specified version tag from the prompt.
+      operationId: removeVersionTag
+      tags:
+        - Prompts
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique prompt UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: tag
+          in: path
+          required: true
+          description: Tag string to remove.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Tag removed successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Prompt or tag not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/prompts/{id}/payloads:
+    post:
+      summary: Create a Prompt Payload
+      description: Creates a new sample payload for the specified prompt. Only editors of the team can create.
+      operationId: createPromptPayload
+      tags:
+        - Prompt Payloads
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique prompt UUID.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePromptPayloadRequest'
+      responses:
+        '201':
+          description: Prompt payload created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payload:
+                    $ref: '#/components/schemas/PromptPayload'
+                required:
+                  - payload
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Prompt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+    get:
+      summary: List Prompt Payloads
+      description: Lists all sample payloads associated with the specified prompt.
+      operationId: listPromptPayloads
+      tags:
+        - Prompt Payloads
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique prompt UUID.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of prompt payloads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payloads:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PromptPayload'
+                required:
+                  - payloads
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Prompt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/prompts/{id}/payloads/{payloadID}:
+    get:
+      summary: Get a Prompt Payload
+      description: Retrieves a specific sample payload by its ID and prompt ID.
+      operationId: getPromptPayload
+      tags:
+        - Prompt Payloads
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique prompt UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: payloadID
+          in: path
+          required: true
+          description: Unique payload UUID.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Prompt payload details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payload:
+                    $ref: '#/components/schemas/PromptPayload'
+                required:
+                  - payload
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Prompt or payload not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+    put:
+      summary: Update a Prompt Payload
+      description: Updates an existing sample payload's variables and/or optional name. Only editors can update.
+      operationId: updatePromptPayload
+      tags:
+        - Prompt Payloads
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique prompt UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: payloadID
+          in: path
+          required: true
+          description: Unique payload UUID.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePromptPayloadRequest'
+      responses:
+        '200':
+          description: Prompt payload updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payload:
+                    $ref: '#/components/schemas/PromptPayload'
+                required:
+                  - payload
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Prompt or payload not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+    delete:
+      summary: Delete a Prompt Payload
+      description: Deletes a specific sample payload. Only editors can delete.
+      operationId: deletePromptPayload
+      tags:
+        - Prompt Payloads
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique prompt UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: payloadID
+          in: path
+          required: true
+          description: Unique payload UUID.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Prompt payload deleted successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Prompt or payload not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
 components:
   securitySchemes:
     BearerAuth:
@@ -1796,6 +3191,115 @@ components:
         created_at:
           type: string
           format: date-time
+    OrganizationWithRole:
+      type: object
+      required:
+        - id
+        - name
+        - role
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          type: string
+          enum:
+            - ADMIN
+            - MEMBER
+          example: ADMIN
+        created_at:
+          type: string
+          format: date-time
+    Team:
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    TeamJoinRequest:
+      type: object
+      required:
+        - id
+        - team_id
+        - user_id
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        team_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - rejected
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    InboxItem:
+      type: object
+      required:
+        - id
+        - team_id
+        - team_name
+        - user_id
+        - user_email
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        team_id:
+          type: string
+          format: uuid
+        team_name:
+          type: string
+        user_id:
+          type: string
+          format: uuid
+        user_email:
+          type: string
+          format: email
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - rejected
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     Prompt:
       type: object
       properties:
@@ -1803,12 +3307,25 @@ components:
           type: string
           format: uuid
           description: Unique identifier.
+        team_id:
+          type: string
+          format: uuid
+          description: Unique identifier of the team.
+        slug:
+          type: string
+          description: Unique slug within the team.
         name:
           type: string
           description: Name of the prompt container.
         description:
           type: string
           description: Brief summary explaining the prompt purpose.
+        status:
+          type: string
+          enum:
+            - active
+            - archived
+          description: Current status of the prompt container (active, archived).
         created_at:
           type: string
           format: date-time
@@ -1817,8 +3334,11 @@ components:
           format: date-time
       required:
         - id
+        - team_id
+        - slug
         - name
         - description
+        - status
         - created_at
         - updated_at
     PromptVersion:
@@ -1843,6 +3363,7 @@ components:
           type: string
           enum:
             - draft
+            - stable
             - live
             - archived
           description: Active lifecycle status of this template version.
@@ -1854,6 +3375,11 @@ components:
           format: date-time
           nullable: true
           description: Timestamp when status was set to live. Null if draft.
+        tags:
+          type: array
+          items:
+            type: string
+          description: List of tag strings attached to this version.
       required:
         - id
         - prompt_id
@@ -1862,6 +3388,7 @@ components:
         - status
         - created_at
         - published_at
+        - tags
     RenderRequest:
       type: object
       properties:
@@ -1883,9 +3410,84 @@ components:
           type: integer
           description: Sequence version number that was executed.
           example: 1
+        slug:
+          type: string
+          description: Unique prompt slug.
+          example: my_prompt
+        tags:
+          type: array
+          items:
+            type: string
+          description: List of tag strings attached to this version.
       required:
         - rendered
         - version
+        - slug
+        - tags
+    PromptPayload:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique payload identifier.
+        prompt_id:
+          type: string
+          format: uuid
+          description: Reference to parent Prompt ID.
+        name:
+          type: string
+          nullable: true
+          description: Optional name for this sample payload.
+        variables:
+          type: object
+          description: Standard JSON object containing variable names and sample values.
+          example:
+            user: Arpit
+            role: Admin
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - prompt_id
+        - variables
+        - created_at
+        - updated_at
+    CreatePromptPayloadRequest:
+      type: object
+      properties:
+        variables:
+          type: object
+          description: JSON object containing variable names and sample values.
+          example:
+            user: Arpit
+            role: Admin
+      required:
+        - variables
+    UpdatePromptPayloadRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Optional name for this sample payload.
+          example: Admin Sample
+        variables:
+          type: object
+          description: JSON object containing variable names and sample values.
+          example:
+            user: Alice
+            role: Editor
+    UpdatePromptRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Brief summary explaining the prompt purpose.
+          example: Useful greeting prompt
     RegisterRequest:
       type: object
       properties:
@@ -1930,6 +3532,28 @@ components:
       required:
         - email
         - code
+    TriggerPasswordResetRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+      required:
+        - email
+    ResetPasswordRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          example: '123456'
+        new_password:
+          type: string
+          minLength: 8
+          example: NewSecretPassword123!
+      required:
+        - code
+        - new_password
     CreateAPIKeyRequest:
       type: object
       properties:
@@ -1985,24 +3609,6 @@ components:
         - key_prefix
         - operation
         - created_at
-    Team:
-      type: object
-      required:
-        - id
-        - name
-        - created_at
-      properties:
-        id:
-          type: string
-          format: uuid
-        org_id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        created_at:
-          type: string
-          format: date-time
     TeamMemberResponse:
       type: object
       required:
@@ -2030,11 +3636,9 @@ components:
         description:
           type: string
           example: Useful prompt
-        team_ids:
-          type: array
-          items:
-            type: string
-            format: uuid
+        slug:
+          type: string
+          example: my_prompt
       required:
         - name
     CreateVersionRequest:
