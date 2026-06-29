@@ -400,6 +400,113 @@ paths:
                 $ref: '#/components/schemas/APIError'
               example:
                 error: unauthorized
+    put:
+      summary: Update Me
+      description: Updates the profile of the currently logged-in user.
+      operationId: updateMe
+      tags:
+        - Auth
+      security:
+        - BearerAuth: []
+      x-test-coverage:
+        - 'TestUpdateMe: Verifies that updating user profile succeeds.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMeRequest'
+      responses:
+        '200':
+          description: User profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                required:
+                  - user
+        '400':
+          description: Invalid email format or missing fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: Email already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+    delete:
+      summary: Delete Me
+      description: Deletes the currently logged-in user's account.
+      operationId: deleteMe
+      tags:
+        - Auth
+      security:
+        - BearerAuth: []
+      x-test-coverage:
+        - 'TestDeleteMe: Verifies that deleting a user account succeeds.'
+      responses:
+        '204':
+          description: Account deleted successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/auth/me/change-password:
+    post:
+      summary: Change Password
+      description: Changes the currently logged-in user's password.
+      operationId: changePassword
+      tags:
+        - Auth
+      security:
+        - BearerAuth: []
+      x-test-coverage:
+        - 'TestChangePassword: Verifies changing authenticated password.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: password changed successfully
+                required:
+                  - message
+        '400':
+          description: Password too short or too weak
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized or invalid current password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
   /v1/auth/password-reset/trigger:
     post:
       summary: Trigger Password Reset
@@ -665,6 +772,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+  /v1/me/teams/{teamID}:
+    delete:
+      summary: Leave Team
+      description: Allows the authenticated user to voluntarily leave a team they belong to.
+      operationId: leaveTeam
+      tags:
+        - Teams
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: teamID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Left team successfully (No Content)
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Team not found or user not a member of the team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
   /v1/me/orgs:
     get:
       summary: List User Organizations
@@ -698,7 +836,7 @@ paths:
       description: Returns a list of pending join requests that the authenticated user is authorized to approve or reject.
       operationId: getAdminInbox
       tags:
-        - Teams
+        - Team Memberships
       security:
         - BearerAuth: []
       responses:
@@ -937,7 +1075,7 @@ paths:
       description: Returns a paginated list of members for a given team. Requires at least viewer access.
       operationId: listTeamMembers
       tags:
-        - Teams
+        - Team Memberships
       security:
         - BearerAuth: []
       parameters:
@@ -982,7 +1120,7 @@ paths:
       description: Adds a user to a team. Requires admin privileges.
       operationId: addTeamMember
       tags:
-        - Teams
+        - Team Memberships
       security:
         - BearerAuth: []
       parameters:
@@ -1019,7 +1157,7 @@ paths:
       description: Removes a user from a team. Requires admin privileges.
       operationId: removeTeamMember
       tags:
-        - Teams
+        - Team Memberships
       security:
         - BearerAuth: []
       parameters:
@@ -1050,7 +1188,7 @@ paths:
       description: Updates a team member's role. Requires team admin privileges.
       operationId: updateTeamMemberRole
       tags:
-        - Teams
+        - Team Memberships
       security:
         - BearerAuth: []
       parameters:
@@ -1106,7 +1244,7 @@ paths:
       description: Creates a pending request for the authenticated user to join a specific team.
       operationId: createJoinRequest
       tags:
-        - Teams
+        - Team Memberships
       security:
         - BearerAuth: []
       parameters:
@@ -1154,7 +1292,7 @@ paths:
       description: Approves or rejects a pending join request.
       operationId: resolveJoinRequest
       tags:
-        - Teams
+        - Team Memberships
       security:
         - BearerAuth: []
       parameters:
@@ -1304,6 +1442,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+    delete:
+      summary: Delete Organization
+      description: Deletes an organization and all cascading dependencies. Requires Org Admin.
+      operationId: deleteOrg
+      tags:
+        - Organizations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted successfully (No Content)
         '401':
           description: Unauthorized
           content:
@@ -1858,13 +2032,215 @@ paths:
                 $ref: '#/components/schemas/APIError'
               example:
                 error: internal error
+  /v1/prompts/{id}/restore:
+    post:
+      summary: Restore a Prompt
+      description: Restores a previously archived prompt setting `status` back to 'active'. Requires Team Admin or Org Admin.
+      operationId: restorePrompt
+      tags:
+        - Prompts
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Prompt successfully restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prompt:
+                    $ref: '#/components/schemas/Prompt'
+                required:
+                  - prompt
+        '400':
+          description: Invalid UUID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Prompt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/prompts/{id}/move:
+    post:
+      summary: Move a Prompt
+      description: Moves a prompt from its current team to another team. Requires admin privileges on both teams.
+      operationId: movePrompt
+      tags:
+        - Prompts
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+              properties:
+                team_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Prompt successfully moved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prompt:
+                    $ref: '#/components/schemas/Prompt'
+                required:
+                  - prompt
+        '400':
+          description: Invalid UUID format or team_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Prompt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/prompts/{id}/versions/diff:
+    get:
+      summary: Diff Prompt Versions
+      description: Compares the templates of two prompt versions side-by-side and returns a unified diff. Requires read access to the prompt.
+      operationId: diffVersions
+      tags:
+        - Prompt Versions
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: The source version number to compare from.
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: The target version number to compare to.
+      responses:
+        '200':
+          description: Versions compared successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  from_version:
+                    type: integer
+                    example: 1
+                  to_version:
+                    type: integer
+                    example: 2
+                  from_template:
+                    type: string
+                    example: Hello {{ .name }}
+                  to_template:
+                    type: string
+                    example: |-
+                      Hello {{ .name }}!
+                      Welcome to px0.
+                  diff:
+                    type: string
+                    example: |
+                      --- v1
+                      +++ v2
+                      @@ -1 +1,2 @@
+                      -Hello {{ .name }}
+                      +Hello {{ .name }}!
+                      +Welcome to px0.
+                required:
+                  - from_version
+                  - to_version
+                  - from_template
+                  - to_template
+                  - diff
+        '400':
+          description: Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Prompt or version not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
   /v1/prompts/{id}/render:
     post:
       summary: Render Live Prompt Version
       description: Renders the active 'live' template version of a prompt using supplied variables.
       operationId: renderLive
       tags:
-        - Prompts
+        - Prompt Renders
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -1947,7 +2323,7 @@ paths:
       description: Creates a new version of the prompt template in 'draft' state.
       operationId: createVersion
       tags:
-        - Prompts
+        - Prompt Versions
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -2026,7 +2402,7 @@ paths:
       description: Lists all template versions associated with a prompt container.
       operationId: listVersions
       tags:
-        - Prompts
+        - Prompt Versions
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -2092,7 +2468,7 @@ paths:
       description: Retrieves details of a specific prompt template version by version number.
       operationId: getVersion
       tags:
-        - Prompts
+        - Prompt Versions
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -2156,7 +2532,7 @@ paths:
         Only versions currently in the 'draft' status may be modified.
       operationId: updateVersion
       tags:
-        - Prompts
+        - Prompt Versions
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -2236,7 +2612,7 @@ paths:
         Only versions currently in the 'draft' status may be deleted.
       operationId: deletePromptVersion
       tags:
-        - Prompts
+        - Prompt Versions
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -2303,7 +2679,7 @@ paths:
         When promoting a version to live, any previous live version is demoted to stable.
       operationId: promoteVersion
       tags:
-        - Prompts
+        - Prompt Versions
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -2378,7 +2754,7 @@ paths:
       description: Demotes a live prompt version to stable (making it inactive but remaining read-only).
       operationId: demoteVersion
       tags:
-        - Prompts
+        - Prompt Versions
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -2450,7 +2826,7 @@ paths:
       description: Archives a prompt version, marking its status as archived.
       operationId: archiveVersion
       tags:
-        - Prompts
+        - Prompt Versions
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -2524,7 +2900,7 @@ paths:
         This operation does not copy any associated payloads, only the prompt template and other metadata.
       operationId: duplicateVersion
       tags:
-        - Prompts
+        - Prompt Versions
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -2590,7 +2966,7 @@ paths:
       description: Renders a specific template version of a prompt (even draft status) using supplied variables.
       operationId: renderVersion
       tags:
-        - Prompts
+        - Prompt Renders
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -2662,7 +3038,7 @@ paths:
       description: Attaches a unique string tag (e.g. 'prod') to the specified prompt version, replacing the tag on any other version of this prompt if it was already assigned.
       operationId: setVersionTag
       tags:
-        - Prompts
+        - Prompt Versions
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -2730,7 +3106,7 @@ paths:
       description: Lists all tags associated with versions of this prompt.
       operationId: listVersionTags
       tags:
-        - Prompts
+        - Prompt Versions
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -2782,7 +3158,7 @@ paths:
       description: Removes/deletes the specified version tag from the prompt.
       operationId: removeVersionTag
       tags:
-        - Prompts
+        - Prompt Versions
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -3159,6 +3535,7 @@ components:
           enum:
             - read_render
             - all
+            - admin
           description: The scope of operations.
         created_at:
           type: string
@@ -3418,7 +3795,7 @@ components:
           type: array
           items:
             type: string
-          description: List of tag strings attached to this version.
+          description: List of tag strings assigned to this version.
       required:
         - rendered
         - version
@@ -3532,6 +3909,28 @@ components:
       required:
         - email
         - code
+    UpdateMeRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: newemail@example.com
+      required:
+        - email
+    ChangePasswordRequest:
+      type: object
+      properties:
+        current_password:
+          type: string
+          example: OldSecretPassword123!
+        new_password:
+          type: string
+          minLength: 8
+          example: NewSecretPassword123!
+      required:
+        - current_password
+        - new_password
     TriggerPasswordResetRequest:
       type: object
       properties:
@@ -3574,6 +3973,7 @@ components:
           enum:
             - read_render
             - all
+            - admin
           default: read_render
       required:
         - name
