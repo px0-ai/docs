@@ -18,6 +18,14 @@
         ]
       },
       {
+        "group": "SDK",
+        "pages": [
+          "sdk/python",
+          "sdk/typescript",
+          "sdk/go"
+        ]
+      },
+      {
         "group": "API Reference",
         "openapi": "openapi.yaml"
       }

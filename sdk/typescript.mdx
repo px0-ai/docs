@@ -1,0 +1,76 @@
+---
+title: "TypeScript"
+description: "Render prompt templates programmatically using the px0 TypeScript SDK."
+---
+
+Integrate px0 into your TypeScript application. This guide shows how to fetch and render a prompt template programmatically.
+
+## Prerequisites
+
+Before running the SDK, ensure you have completed the following steps:
+
+- [Running px0 locally](/running-locally)
+- [Writing your first prompt](/writing-your-first-prompt)
+- [Getting an access key](/getting-access-key)
+
+## Configuration
+
+The TypeScript SDK requires connection details and authentication to communicate with your px0 instance. Configure these details using environment variables.
+
+- `PX0_HOST`: The URL of your px0 API instance.
+- `PX0_ACCESS_TOKEN`: Your API access key.
+
+Set these variables in your shell before running the applications:
+
+```bash
+export PX0_HOST="http://localhost:8000"
+export PX0_ACCESS_TOKEN="your_access_key_here"
+```
+
+## Installation
+
+Install the required client library for TypeScript.
+
+```bash
+npm install @px0-ai/px0
+```
+
+## Hello World Example
+
+The following example demonstrates how to load the client, authenticate, and render a live prompt template named `hello_world` with a dynamic `name` variable.
+
+```typescript
+import { Configuration, PromptRendersApi } from "@px0-ai/px0";
+
+const host = process.env.PX0_HOST;
+const accessToken = process.env.PX0_ACCESS_TOKEN;
+
+const config = new Configuration({
+    basePath: host || undefined,
+    accessToken: accessToken || undefined,
+});
+
+const rendersApi = new PromptRendersApi(config);
+
+async function main() {
+    try {
+        const response = await rendersApi.renderLive("hello_world", {
+            variables: { name: "World" },
+        });
+        console.log(response.data.rendered);
+    } catch (error: any) {
+        console.error("Error rendering live:", error?.response?.data || error?.message || error);
+        process.exit(1);
+    }
+}
+
+main();
+```
+
+## Execution
+
+Execute the TypeScript file using `ts-node`:
+
+```bash
+npx ts-node main.ts
+```
