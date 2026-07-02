@@ -10,10 +10,10 @@
   "favicon": "/favicon.ico",
   "navigation": {
     "pages": [
+      "index",
       {
         "group": "Getting Started",
         "pages": [
-          "index",
           "template-syntax"
         ]
       },
