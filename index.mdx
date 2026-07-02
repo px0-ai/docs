@@ -1,34 +1,11 @@
 ---
 title: "Introduction"
-description: "px[0] is an open-source prompt infrastructure toolkit for managing prompts in production."
+description: "px0 is an open-source prompt infrastructure toolkit that lets you version, update, and govern prompts in production, eliminating the need to hardcode prompts or redeploy your application for prompt changes."
 ---
-
-Prompts are code. Treat them like it.
-
-px0 is open-source prompt infrastructure for AI applications. It replaces hardcoded prompt strings with versioned templates, in-process caching, A/B testing, and OpenTelemetry observability - so teams can iterate on prompts without touching application code.
 
 ## Benefits
 
-Using px0 brings significant operational and governance benefits to your AI systems:
-
-- No prompt hardcoding: Decouple prompt strings from code. Manage and edit them in one place.
-- No deployment overhead: Publish new versions instantly. No CI/CD runs or redeployments needed.
-- [WIP] Dynamic A/B testing: Split production traffic between templates. Find the best version using live metrics.
-- Prompt sharing: Share templates across teams. Reduce duplication and align message standards.
-- RBAC governance: Protect production prompts. Only authorized admins can promote changes.
-
-## Features
-### Implemented Features
-
-- Version-controlled prompt templates: Store and manage prompts in the database instead of hardcoding strings in application code.
-- Draft, review, and publish workflow: Support creating, promoting, demoting, archiving, and visually diffing versioned prompts.
-- Atomic promotions and instant rollouts: Go live instantly without recompiling services or running deployment pipelines.
-- Template execution: Render templates containing variables, conditionals, and loops using Go's template engine.
-- OpenTelemetry observability: HTTP request counters, server error rates, and response latency to any compliant backend.
-- Role-based access control (RBAC): Secure prompt actions using Viewer, Editor, Team Admin, and Org Admin roles.
-
-## Get Started
-
-Visit the [GitHub Repository](https://github.com/px0-ai/px0) to run px0 locally, explore examples, and deploy it in production. In just a few minutes, you can start versioning, testing, caching, and observing prompts without changing application code.
-
-Treat prompts like code. Ship them with confidence.
+- Decouple prompt strings from codebase definitions to manage templates in a single control plane.
+- Promote new prompt versions instantly with zero CI/CD overhead or application redeployments.
+- Share standardized prompt templates across teams to align engineering practices.
+- Govern production environments by restricting version promotion to authorized administrators.
