@@ -1,0 +1,123 @@
+---
+title: "Setup Telemetry"
+description: "Configure the end-to-end telemetry stack with Prometheus, Grafana, and the OpenTelemetry Collector to monitor and benchmark your prompt infrastructure."
+---
+
+Monitoring system performance, latency, and resource consumption is essential for maintaining prompt rendering pipelines. px0 features a built-in telemetry stack that captures and visualizes metrics from the Go API Server, PostgreSQL database, and Redis cache.
+
+This guide walks you through the observability architecture, starting the telemetry stack, verifying metrics collection, and visualizing data in Grafana under simulated benchmark load.
+
+## Observability Architecture
+
+The observability stack uses industry-standard cloud-native tools to capture and aggregate metrics:
+
+- **Go API Server Metrics:** Emitted using the OpenTelemetry SDK via OTLP (gRPC) to the OpenTelemetry Collector, which exposes a Prometheus scraper endpoint.
+- **PostgreSQL Database Metrics:** Captured by the `postgres-exporter` container, which queries database statistics and exposes standard metrics.
+- **Redis Caching Metrics:** Captured by the `redis-exporter` container, which collects keyspace, memory, and connection statistics.
+- **Prometheus Server:** Scrapes the OpenTelemetry Collector, postgres-exporter, and redis-exporter at high frequency (5-second intervals) to assemble a unified telemetry database.
+- **Grafana Platform:** Pulls metrics from Prometheus to display preconfigured, interactive dashboards.
+
+## Port Mapping and Web UIs
+
+The telemetry endpoints exposed locally when booting the stack include:
+
+| Service | Port | Endpoint URL | Description |
+| :--- | :--- | :--- | :--- |
+| Go API Server | `8000` | http://localhost:8000 | The primary Go backend application built with Fiber |
+| Prometheus | `9090` | http://localhost:9090 | The metrics database scraping all collector endpoints |
+| Grafana | `3000` | http://localhost:3000 | The visualization platform preloaded with provisioned dashboards |
+| OpenTelemetry Collector | `4317` / `4318` | localhost:4317 | The OTLP gRPC and HTTP receiver pipelines |
+| OTEL Prometheus Exporter | `8889` | http://localhost:8889 | Scraper endpoint for Go API server metrics |
+| PostgreSQL Exporter | `9187` | http://localhost:9187 | Scraper endpoint for PostgreSQL database metrics |
+| Redis Exporter | `9121` | http://localhost:9121 | Scraper endpoint for Redis cache metrics |
+
+## 1. Spin Up the Telemetry Stack
+
+All observability services and database exporters are orchestrated inside the `docker-compose.yml` file of the main application. If you have already started the containers as described in the [Run px0 Locally](/get-started/run-locally) guide, the telemetry stack is already running.
+
+Otherwise, boot all background containers in detached mode from the project root:
+
+```bash
+docker compose up -d
+```
+
+## 2. Verify Prometheus Scraping Targets
+
+Ensure that the Prometheus server is successfully scraping all system components:
+
+1. Open the Prometheus targets dashboard at http://localhost:9090/targets.
+2. Verify that all three endpoints show a status of **UP**:
+   - `otel-collector` (Go application metrics)
+   - `postgres-exporter` (PostgreSQL database metrics)
+   - `redis-exporter` (Redis cache metrics)
+
+### Quick Sanity Queries
+
+Navigate to http://localhost:9090 and execute these queries in the expression browser to confirm metric capture:
+
+- **Application Metrics:** Enter `px0_http_server_requests_total` or `px0_go_goroutine_count` and click Execute.
+- **PostgreSQL Metrics:** Enter `pg_up` or `pg_stat_database_numbackends` and click Execute.
+- **Redis Metrics:** Enter `redis_up` or `redis_connected_clients` and click Execute.
+
+## 3. Generate Load and Run Benchmarks
+
+To observe real-time metrics on your dashboards, you must simulate system load. The project contains a high-performance, self-contained load-testing utility located at `cmd/loadtest/main.go`.
+
+### Run the Benchmark
+
+Execute the load test script from the root directory of the main project:
+
+```bash
+go run cmd/loadtest/main.go -concurrency 20 -duration 15
+```
+
+### Benchmarking Lifecycle
+
+The script executes the following actions autonomously during execution:
+
+1. Connects directly to the PostgreSQL database.
+2. Registers a temporary test organization, team, programmatic API key, prompt, and a live prompt template version.
+3. Conducts a pre-flight health check on the rendering API endpoint.
+4. Launches concurrent worker goroutines that send high-throughput parallel POST requests to render the live prompt template.
+5. Cleans up and truncates all temporary test records upon completion.
+6. Measures response latency and success throughput, outputting an aligned table in your console.
+
+### Sample Benchmark Results
+
+The console output from a successful benchmark run looks similar to this:
+
+```
+Metric                    |Value
+------                    |-----
+Concurrency               |20 workers
+Benchmark Duration        |15.00s
+Total Requests            |14812
+Successful Requests       |14792
+Failed Requests           |20
+Request Throughput (RPS)  |987.43 reqs/s
+Success Rate              |99.86%
+Average Latency           |20.19323ms
+p50 (Median) Latency      |18.434648ms
+p90 Latency               |25.100565ms
+p95 Latency               |35.121596ms
+p99 Latency               |41.767094ms
+```
+
+## 4. Explore Grafana Dashboards
+
+Grafana is preconfigured to run locally with zero manual login overhead. Anonymous access is enabled with Admin permissions by default.
+
+### Grafana Access
+
+1. **Access URL:** Open http://localhost:3000 in your browser.
+2. **Authentication:** Anonymous login is active. If prompted for login credentials, use Username: `admin` and Password: `admin`.
+3. **Dashboards:** Navigate to **Dashboards**, open the `px0` folder, and open the preconfigured `px0 Service Dashboard`.
+
+### Key Metrics to Monitor
+
+When running a benchmark, observe the following visualizations on the dashboard:
+
+- **HTTP Request Rate (RPS):** Tracks the real-time throughput of the application.
+- **HTTP Latency (p95 and p99):** Visualizes tail latencies to detect performance degradation under load.
+- **Active and In-flight Requests:** Measures the active concurrent requests being processed by the Go web server.
+- **System Resources:** Tracks host and container CPU/memory usage to help you identify hardware bottlenecks.

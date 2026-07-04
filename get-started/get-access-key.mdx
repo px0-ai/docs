@@ -1,0 +1,86 @@
+---
+title: "Get an Access Key"
+description: "Learn how to retrieve your organization and team IDs and generate a programmatic API key for secure service-to-service authentication."
+---
+
+With your session token (which starts with `sess_`), you can make authenticated requests to configure your prompt infrastructure. Programmatic API keys act as machine tokens to securely authenticate server-to-server calls when rendering templates in production.
+
+This guide walks you through querying your organization and team details and generating a programmatic API key.
+
+## Prerequisites
+
+Before proceeding, ensure you have:
+
+- Installed and started the local px0 services. See the [Run px0 Locally](/get-started/run-locally) guide for setup instructions.
+- Logged in to obtain a session token. Save your session token to an environment variable:
+
+```bash
+export PX0_ACCESS_TOKEN="your_session_token_here"
+```
+
+## 1. Retrieve Organization and Team IDs
+
+Your programmatic API key needs to be bound to a specific organization and team. You can retrieve these IDs by querying your profile.
+
+### Get Organization ID
+
+Query your registered organizations:
+
+```bash
+curl -s -H "Authorization: Bearer ${PX0_ACCESS_TOKEN}" \
+  http://localhost:8000/v1/me/orgs
+```
+
+Save the organization ID returned in the JSON response to an environment variable:
+
+```bash
+export PX0_ORG_ID="your_organization_id_here"
+```
+
+### Get Team ID
+
+Query your registered teams:
+
+```bash
+curl -s -H "Authorization: Bearer ${PX0_ACCESS_TOKEN}" \
+  http://localhost:8000/v1/me/teams
+```
+
+Save the team ID returned in the JSON response to an environment variable:
+
+```bash
+export PX0_TEAM_ID="your_team_id_here"
+```
+
+## 2. Generate a Programmatic API Key
+
+Create a programmatic key with `all` or `read_render` operations. This key acts as an application token for rendering templates programmatically in your microservices.
+
+Execute the following request to generate the key:
+
+```bash
+curl -i -X POST "http://localhost:8000/v1/api-keys" \
+  -H "Authorization: Bearer ${PX0_ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  --data @- <<EOF
+{
+  "name": "my-application-key",
+  "org_id": "${PX0_ORG_ID}",
+  "team_ids": ["${PX0_TEAM_ID}"],
+  "operation": "all"
+}
+EOF
+```
+
+Copy the key returned in the JSON response and save it to an environment variable:
+
+```bash
+export PX0_API_KEY="your_api_key_here"
+```
+
+## Next Steps
+
+Now that you have generated a programmatic API key, you are ready to configure, version, and render your prompt templates.
+
+- [Create Your First Prompt](/get-started/create-prompt)
+- [Setup Telemetry](/get-started/setup-telemetry)

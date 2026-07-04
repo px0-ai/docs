@@ -14,7 +14,10 @@
       {
         "group": "Getting Started",
         "pages": [
-          "template-syntax"
+          "get-started/run-locally",
+          "get-started/get-access-key",
+          "get-started/create-prompt",
+          "get-started/setup-telemetry"
         ]
       },
       {
@@ -23,6 +26,12 @@
           "sdk/python",
           "sdk/typescript",
           "sdk/go"
+        ]
+      },
+      {
+        "group": "References",
+        "pages": [
+          "template-syntax"
         ]
       },
       {
