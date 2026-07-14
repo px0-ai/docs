@@ -636,6 +636,18 @@ paths:
         - API Keys
       security:
         - BearerAuth: []
+      x-edge-cases:
+        - Only standard user session tokens can create API keys; existing API keys cannot create or rotate other keys.
+        - If team_ids is omitted or empty, the key is scoped to all teams in the organization.
+        - Every supplied team_id must exist and belong to the specified org_id.
+      x-test-coverage:
+        - 'TestCreateAPIKey_Success: Verifies key creation with an explicit team scope.'
+        - 'TestCreateAPIKey_MissingName: Verifies missing key name returns 400.'
+        - 'TestCreateAPIKey_RequiresAccessToken: Verifies API keys cannot create other API keys.'
+        - 'TestCreateAPIKey_GlobalScope: Verifies empty team_ids creates an org-wide key.'
+        - 'TestCreateAPIKey_AdminScope: Verifies admin operation keys can perform authorized admin actions.'
+        - 'TestCreateAPIKey_RejectsTeamOutsideOrg: Verifies teams from another organization are rejected.'
+        - 'TestCreateAPIKey_RejectsUnknownTeam: Verifies unknown team IDs are rejected.'
       requestBody:
         required: true
         content:
@@ -663,6 +675,12 @@ paths:
                 $ref: '#/components/schemas/APIError'
         '403':
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Referenced team not found
           content:
             application/json:
               schema:
@@ -871,9 +889,11 @@ paths:
         - Team admins or editors of other custom teams are forbidden from creating teams.
         - Fails with 400 if name is empty.
         - Fails with 409 if the team name already exists under the target organization.
+        - The team creator is automatically and atomically added as an admin member of the newly created team.
       x-test-coverage:
         - 'TestRolesAndPermissions: Verifies that a Team Admin of a custom team is forbidden from creating a team (returns 403 Forbidden).'
         - 'TestRolesAndPermissions: Verifies that an Org Admin (admin of Default Team) can create a team (returns 201 Created).'
+        - 'TestCreateTeam_Success: Verifies that a team is successfully created and the creator is automatically assigned as an admin.'
       parameters:
         - name: orgID
           in: path
@@ -1624,26 +1644,421 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-  /v1/teams/{teamID}/prompts:
+  /v1/projects:
     post:
-      summary: Create a Prompt
-      description: Creates a new prompt container.
-      operationId: createPrompt
+      summary: Create a Project
+      description: |
+        Creates a project owned by a team. The requester must be an
+        editor-or-above member of the owning team, or an admin of that team's
+        organization. The project name and slug must each be unique within the
+        owning team.
+      operationId: createProject
       tags:
-        - Prompts
+        - Projects
+      security:
+        - BearerAuth: []
+      x-edge-cases:
+        - A viewer of the owning team, or a non-member, is refused with 403.
+        - An org admin can create a project for any team in their org without being a member of that team.
+        - A duplicate name or slug within the same owning team returns 409; the same name/slug under a different team is allowed.
+        - If slug is omitted it is derived from the name and normalized.
+      x-test-coverage:
+        - 'TestCreateProject_Success: editor creates a project (201).'
+        - 'TestCreateProject_ForbiddenForViewer: a viewer is refused (403).'
+        - 'TestCreateProject_MissingName: missing name returns 400.'
+        - 'TestCreateProject_Duplicate: duplicate name/slug in the same team returns 409.'
+        - 'TestCreateProject_Unauthorized: unauthenticated request returns 401.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '400':
+          description: Invalid request (invalid body, invalid team_id, or missing name)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden (requester is not an editor of the team or an org admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Owning team not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: A project with this name or slug already exists in the team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/projects/{projectID}:
+    get:
+      summary: Get a Project
+      description: |
+        Fetches a project by ID. The requester must be able to reach the
+        project — as a member of the owning team or of a team granted access.
+        Projects the requester cannot reach are reported as not found.
+      operationId: getProject
+      tags:
+        - Projects
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          description: The ID of the project.
+          schema:
+            type: string
+            format: uuid
+      x-edge-cases:
+        - An unknown project id, or one the requester cannot reach, returns 404.
+      x-test-coverage:
+        - 'TestGetProject_Success: owning-team member fetches the project (200).'
+        - 'TestGetProject_NotFoundForNonMember: a non-member gets 404.'
+        - 'TestGetProject_NotFound: an unknown id returns 404.'
+      responses:
+        '200':
+          description: The project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '400':
+          description: Invalid project id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Project not found or not reachable by the requester
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+    delete:
+      summary: Delete a Project
+      description: |
+        Hard-deletes a project, cascading to its prompts (and their versions,
+        tags, and payloads) and dropping its access grants. The requester must
+        be an admin of the owning team or an admin of that team's organization.
+      operationId: deleteProject
+      tags:
+        - Projects
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          description: The ID of the project.
+          schema:
+            type: string
+            format: uuid
+      x-edge-cases:
+        - A non-admin member of the owning team is refused with 403.
+        - An unknown project id returns 404.
+      x-test-coverage:
+        - 'TestDeleteProject_Success: an owning-team admin deletes the project (204).'
+        - 'TestDeleteProject_ForbiddenForNonAdmin: a non-admin is refused (403).'
+        - 'TestDeleteProject_NotFound: an unknown id returns 404.'
+      responses:
+        '204':
+          description: Project deleted successfully (No Content)
+        '400':
+          description: Invalid project id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden (requester is not an admin of the owning team or org)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/projects/{projectID}/access:
+    post:
+      summary: Grant Project Access
+      description: |
+        Grants another team access to the project's prompts. The requester must
+        be an admin of the owning team or an admin of its organization. The
+        grantee team must belong to the same organization as the owning team.
+        An org-less owning team cannot share its projects.
+      operationId: grantProjectAccess
+      tags:
+        - Projects
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          description: The ID of the project.
+          schema:
+            type: string
+            format: uuid
+      x-edge-cases:
+        - A non-admin of the owning team is refused with 403.
+        - A grantee team in a different organization is refused with 403.
+        - An org-less owning team cannot share; the grant is refused with 403.
+        - Granting to the owning team is rejected with 400 (it already has implicit access).
+        - Re-granting an existing access is idempotent and returns 201.
+        - An unknown project returns 404; an unknown grantee team returns 404.
+      x-test-coverage:
+        - 'TestGrantProjectAccess_Success: owning-team admin grants same-org team (201) and the grantee reaches the project.'
+        - 'TestGrantProjectAccess_ForbiddenForNonAdmin: an editor is refused (403).'
+        - 'TestGrantProjectAccess_RejectsTeamOutsideOrg: a foreign-org grantee is refused (403).'
+        - 'TestGrantProjectAccess_RejectsOrgLessOwner: an org-less owning team cannot share (403).'
+        - 'TestGrantProjectAccess_UnknownProject: an unknown project returns 404.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantProjectAccessRequest'
+      responses:
+        '201':
+          description: Access granted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectAccessResponse'
+        '400':
+          description: Invalid request (invalid body/team_id, or grantee is the owning team)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden (non-admin, org-less owner, or grantee outside org)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Project or grantee team not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/projects/{projectID}/access/{teamID}:
+    delete:
+      summary: Revoke Project Access
+      description: |
+        Revokes a team's access to the project. The requester must be an admin
+        of the owning team or an admin of its organization. The owning team's
+        implicit access cannot be revoked through this endpoint.
+      operationId: revokeProjectAccess
+      tags:
+        - Projects
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          description: The ID of the project.
+          schema:
+            type: string
+            format: uuid
+        - name: teamID
+          in: path
+          required: true
+          description: The ID of the team whose access is being revoked.
+          schema:
+            type: string
+            format: uuid
+      x-edge-cases:
+        - A non-admin of the owning team is refused with 403.
+        - Revoking an access that does not exist returns 404.
+        - An unknown project returns 404.
+      x-test-coverage:
+        - 'TestRevokeProjectAccess_Success: an admin revokes access (204) and the grantee loses reachability.'
+        - 'TestRevokeProjectAccess_ForbiddenForNonAdmin: an editor is refused (403).'
+        - 'TestRevokeProjectAccess_NotFound: revoking a non-existent grant returns 404.'
+      responses:
+        '204':
+          description: Access revoked successfully (No Content)
+        '400':
+          description: Invalid project or team id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden (requester is not an admin of the owning team or org)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Project or access grant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/teams/{teamID}/projects:
+    get:
+      summary: List a Team's Projects
+      description: |
+        Lists the projects a team owns plus those granted to it. The requester
+        must be a member of the team.
+      operationId: listTeamProjects
+      tags:
+        - Projects
       security:
         - BearerAuth: []
       parameters:
         - name: teamID
           in: path
           required: true
+          description: The ID of the team.
           schema:
             type: string
             format: uuid
-          description: The ID of the team.
+      x-edge-cases:
+        - A non-member of the team is refused with 403.
+        - A team owning and granted nothing returns an empty array.
+      x-test-coverage:
+        - 'TestListTeamProjects_Success: a member lists the team''s owned projects (200).'
+        - 'TestListTeamProjects_ForbiddenForNonMember: a non-member gets 403.'
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectListResponse'
+        '400':
+          description: Invalid team id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: Forbidden (requester is not a member of the team)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /v1/projects/{projectID}/prompts:
+    post:
+      summary: Create a Prompt
+      description: Creates a new prompt inside a project. The requester must be an editor-or-above on the project (via the owning team or a granted team).
+      operationId: createPrompt
+      tags:
+        - Prompts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the project.
+      x-edge-cases:
+        - A viewer of the project is refused with 403; an unknown project returns 404.
+        - Slug uniqueness is scoped to the project, so the same slug may exist in another project.
       x-test-coverage:
         - 'TestCreatePrompt_Success: Verifies prompt creation and response payload.'
         - 'TestCreatePrompt_MissingName: Verifies that missing name returns 400 and ''name is required''.'
+        - 'TestCreatePrompt_ForbiddenForViewer: Verifies a viewer cannot create a prompt (403).'
+        - 'TestCreatePrompt_UnknownProject: Verifies an unknown project returns 404.'
         - 'TestCreatePrompt_Unauthorized: Verifies that unauthenticated request returns 401.'
       requestBody:
         required: true
@@ -1684,6 +2099,24 @@ paths:
                 $ref: '#/components/schemas/APIError'
               example:
                 error: unauthorized
+        '403':
+          description: Forbidden (requester is not an editor of the project)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: A prompt with this name or slug already exists in the project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal Server Error
           content:
@@ -1694,29 +2127,34 @@ paths:
                 error: internal error
     get:
       summary: List Prompts
-      description: Lists all available prompt containers.
+      description: Lists the prompts inside a project. The requester must be able to reach the project.
       operationId: listPrompts
       tags:
         - Prompts
       security:
         - BearerAuth: []
       parameters:
-        - name: teamID
+        - name: projectID
           in: path
           required: true
           schema:
             type: string
             format: uuid
-          description: The ID of the team.
+          description: The ID of the project.
         - name: archived
           in: query
           required: false
           description: Optional boolean to filter prompts by archive state.
           schema:
             type: boolean
+      x-edge-cases:
+        - An API key reaches the prompts of every project its teams can access — owned or granted — and loses that reach when the grant is revoked.
       x-test-coverage:
         - 'TestListPrompts: Verifies listing populated prompt containers.'
         - 'TestListPrompts_Empty: Verifies that listing when empty returns an empty array.'
+        - 'TestPrompts_APIKeyAuth: Verifies an API key lists a project owned by its team.'
+        - 'TestAPIKey_ReachesGrantedProject: Verifies an API key reaches a granted project''s prompts and is denied after revoke.'
+        - 'TestAPIKey_DeniedForeignProject: Verifies an API key is denied a project its teams cannot access.'
       responses:
         '200':
           description: List of prompts
@@ -1739,6 +2177,18 @@ paths:
                 $ref: '#/components/schemas/APIError'
               example:
                 error: unauthorized
+        '403':
+          description: Forbidden (requester cannot reach the project)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal Server Error
           content:
@@ -1749,25 +2199,25 @@ paths:
                 error: internal error
   /v1/prompts:
     get:
-      summary: List all prompts with team filter
-      description: Returns a list of prompts. If team_id query parameter is not provided, returns an empty list by default. Users can filter by a team they are a member of.
+      summary: List all prompts with project filter
+      description: Returns a list of prompts. If the project_id query parameter is not provided, returns an empty list by default. Users can filter by a project they can reach.
       operationId: listAllPrompts
       tags:
         - Prompts
       security:
         - BearerAuth: []
       parameters:
-        - name: team_id
+        - name: project_id
           in: query
           required: false
-          description: Optional UUID of the team to filter prompts (alias of team).
+          description: Optional UUID of the project to filter prompts (alias of project).
           schema:
             type: string
             format: uuid
-        - name: team
+        - name: project
           in: query
           required: false
-          description: Optional UUID of the team to filter prompts (alias of team_id).
+          description: Optional UUID of the project to filter prompts (alias of project_id).
           schema:
             type: string
             format: uuid
@@ -1778,12 +2228,12 @@ paths:
           schema:
             type: boolean
       x-edge-cases:
-        - By default with no team_id query parameter, returns an empty list of prompts.
-        - If a team_id is provided, checks if the user is a member of that team, otherwise returns 403 Forbidden.
+        - By default with no project_id query parameter, returns an empty list of prompts.
+        - If a project_id is provided, checks the requester can reach that project, otherwise returns 403 Forbidden.
       x-test-coverage:
-        - 'TestListAllPrompts: Verifies that no team_id returns 200 with an empty list.'
-        - 'TestListAllPrompts: Verifies that a valid team_id returns 200 with prompts of that team.'
-        - 'TestListAllPrompts: Verifies that an unallowed team_id returns 403 Forbidden.'
+        - 'TestListAllPrompts: Verifies that no project_id returns 200 with an empty list.'
+        - 'TestListAllPrompts: Verifies that a valid project_id returns 200 with prompts of that project.'
+        - 'TestListAllPrompts: Verifies that an unallowed project_id returns 403 Forbidden.'
       responses:
         '200':
           description: A list of prompts
@@ -2102,7 +2552,7 @@ paths:
   /v1/prompts/{id}/move:
     post:
       summary: Move a Prompt
-      description: Moves a prompt from its current team to another team. Requires admin privileges on both teams.
+      description: Moves a prompt from its current project to another project. Requires admin capability on both the source and target project (owning-team or org admin).
       operationId: movePrompt
       tags:
         - Prompts
@@ -2115,6 +2565,13 @@ paths:
           schema:
             type: string
             format: uuid
+      x-edge-cases:
+        - Requires admin on both source and target project; a non-admin on either side is refused with 403.
+        - A move into a project where the prompt's name or slug already exists is rejected with 409.
+        - An unknown prompt or an unknown target project returns 404.
+      x-test-coverage:
+        - 'TestMovePrompt: Verifies an admin moves a prompt between projects (200).'
+        - 'TestMovePrompt_TargetCollision: Verifies a name/slug collision in the target project returns 409.'
       requestBody:
         required: true
         content:
@@ -2122,11 +2579,12 @@ paths:
             schema:
               type: object
               required:
-                - team_id
+                - project_id
               properties:
-                team_id:
+                project_id:
                   type: string
                   format: uuid
+                  description: The target project to move the prompt into.
       responses:
         '200':
           description: Prompt successfully moved
@@ -2140,7 +2598,7 @@ paths:
                 required:
                   - prompt
         '400':
-          description: Invalid UUID format or team_id
+          description: Invalid UUID format or project_id
           content:
             application/json:
               schema:
@@ -2152,13 +2610,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIError'
         '403':
-          description: Forbidden
+          description: Forbidden (not an admin on the source or target project)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
         '404':
-          description: Prompt not found
+          description: Prompt or target project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: A prompt with this name or slug already exists in the target project
           content:
             application/json:
               schema:
@@ -2172,6 +2636,12 @@ paths:
         - Prompt Versions
       security:
         - BearerAuth: []
+      x-edge-cases:
+        - Accepts either a version sequence number or a tag (e.g. 'prod', 'dev') for both 'from' and 'to' query parameters.
+        - Returns 404 Not Found if either the 'from' or 'to' version/tag does not exist.
+        - Fails with 400 Bad Request if 'from' or 'to' query parameters are missing.
+      x-test-coverage:
+        - 'TestDiffVersions: Verifies diffing via numeric sequence numbers, diffing via tags, and verifying a nonexistent tag returns 404.'
       parameters:
         - name: id
           in: path
@@ -2183,14 +2653,14 @@ paths:
           in: query
           required: true
           schema:
-            type: integer
-          description: The source version number to compare from.
+            type: string
+          description: The source version number (integer) or version tag (string) to compare from.
         - name: to
           in: query
           required: true
           schema:
-            type: integer
-          description: The target version number to compare to.
+            type: string
+          description: The target version number (integer) or version tag (string) to compare to.
       responses:
         '200':
           description: Versions compared successfully
@@ -2246,29 +2716,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-  /v1/prompts/{slug}/render:
+  /v1/projects/{projectID}/prompts/{slug}/render:
     post:
       summary: Render Live Prompt Version
-      description: Renders the active 'live' template version of a prompt using supplied variables.
+      description: Renders the active 'live' template version of a prompt using supplied variables. The prompt is resolved by slug within the given project, so the same slug may be reused across projects.
       operationId: renderLive
       tags:
         - Prompt Renders
       security:
         - BearerAuth: []
       parameters:
+        - name: projectID
+          in: path
+          required: true
+          description: The ID of the project the prompt belongs to.
+          schema:
+            type: string
+            format: uuid
         - name: slug
           in: path
           required: true
-          description: Unique prompt slug.
+          description: Prompt slug, unique within the project.
           schema:
             type: string
       x-edge-cases:
         - Fails with 404 if no live version is found.
         - Fails with 422 if template execution fails due to invalid parameters or template syntax mismatches.
+        - Fails with 422 when the template references a variable that is not present in the request variables.
       x-test-coverage:
         - 'TestRenderLive_Success: Verifies rendering with complete variables returning 200 OK.'
         - 'TestRenderLive_NoLiveVersion: Verifies that requesting a render with only ''draft'' versions fails with 404 and ''no live version found for this prompt''.'
         - 'TestRenderLive_NoVariables: Verifies static templates render correctly when empty variables are supplied.'
+        - 'TestRenderLive_MissingVariable: Verifies missing template variables fail with 422 instead of rendering placeholder text.'
+        - 'TestRenderLive_IncludesModelConfig: Verifies render responses include the prompt version model and parameters.'
       requestBody:
         required: true
         content:
@@ -2346,8 +2826,13 @@ paths:
             format: uuid
       x-edge-cases:
         - Validates template string syntax using Go's text/template parser before creating the entry.
+        - If model is supplied, it must be a non-empty string after trimming whitespace.
+        - If model_params is supplied, it must be a JSON object; nested provider-specific values are supported.
       x-test-coverage:
         - 'TestCreateVersion_Success: Verifies version number is incremented to draft status 1.'
+        - 'TestCreateVersion_WithModelConfig: Verifies model and nested model parameters are persisted and returned.'
+        - 'TestCreateVersion_BlankModel: Verifies blank model values reject with 400.'
+        - 'TestCreateVersion_InvalidModelParams: Verifies non-object model parameters reject with 400.'
         - 'TestCreateVersion_InvalidTemplate: Verifies syntax check fails with 400 and ''invalid template''.'
         - 'TestCreateVersion_MissingTemplate: Verifies missing template rejects with 400 and ''template is required''.'
         - 'TestCreateVersion_PromptNotFound: Verifies 404 response on missing parent prompt UUID.'
@@ -2558,8 +3043,12 @@ paths:
             type: string
       x-edge-cases:
         - Fails with 422 Unprocessable Entity if the version status is not 'draft' (e.g. attempting to update a live/archived template).
+        - Allows updating model configuration without changing the template while the version is still a draft.
+        - Allows clearing model and model parameters explicitly by passing JSON null values.
       x-test-coverage:
         - 'TestUpdateVersion_Draft: Verifies modification updates template content and returns 200.'
+        - 'TestUpdateVersion_ModelConfigOnly: Verifies model configuration updates on draft versions without changing the template.'
+        - 'TestUpdateVersion_ClearModelConfig: Verifies model and model parameters can be cleared by explicitly sending null.'
         - 'TestUpdateVersion_LiveVersionRejected: Verifies that updating a published live template version fails with 422 and ''only draft versions can be modified''.'
       requestBody:
         required: true
@@ -2899,7 +3388,7 @@ paths:
       summary: Duplicate Prompt Version
       description: |
         Copies the specified prompt version's template to create a new prompt version in draft state.
-        This operation does not copy any associated payloads, only the prompt template and other metadata.
+        This operation does not copy any associated payloads, only the prompt template and model configuration.
       operationId: duplicateVersion
       tags:
         - Prompt Versions
@@ -2961,20 +3450,27 @@ paths:
                 $ref: '#/components/schemas/APIError'
               example:
                 error: version not found
-  /v1/prompts/{slug}/versions/{version}/render:
+  /v1/projects/{projectID}/prompts/{slug}/versions/{version}/render:
     post:
       summary: Render Specific Prompt Version
-      description: Renders a specific template version of a prompt (even draft status) using supplied variables.
+      description: Renders a specific template version of a prompt (even draft status) using supplied variables. The prompt is resolved by slug within the given project.
       operationId: renderVersion
       tags:
         - Prompt Renders
       security:
         - BearerAuth: []
       parameters:
+        - name: projectID
+          in: path
+          required: true
+          description: The ID of the project the prompt belongs to.
+          schema:
+            type: string
+            format: uuid
         - name: slug
           in: path
           required: true
-          description: Unique prompt slug.
+          description: Prompt slug, unique within the project.
           schema:
             type: string
         - name: version
@@ -2983,8 +3479,11 @@ paths:
           description: Version sequence number (integer) or version tag (string) to render.
           schema:
             type: string
+      x-edge-cases:
+        - Fails with 422 when the template references a variable that is not present in the request variables.
       x-test-coverage:
         - 'TestRenderVersion_Draft: Verifies that rendering works on draft templates.'
+        - 'TestRenderVersion_MissingVariable: Verifies missing template variables fail with 422 for explicit version renders.'
         - 'TestRenderVersion_NotFound: Verifies 404 response if the requested version sequence number does not exist.'
       requestBody:
         required: true
@@ -3451,6 +3950,564 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+  /v1/projects/{projectID}/skills:
+    post:
+      summary: Create a Skill
+      description: Creates a new skill inside a project. Accepts JSON or multipart/form-data with a zip file.
+      operationId: createSkill
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the project.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSkillRequest'
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                description:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+              required:
+                - name
+      responses:
+        '201':
+          description: Skill created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  skill:
+                    $ref: '#/components/schemas/Skill'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Project not found
+        '409':
+          description: Duplicate skill name or slug
+    get:
+      summary: List Skills
+      description: Lists the skills inside a project.
+      operationId: listSkills
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the project.
+      responses:
+        '200':
+          description: List of skills
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  skills:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Skill'
+  /v1/skills/{id}:
+    get:
+      summary: Get a Skill
+      description: Retrieves details of a specific skill by ID or slug.
+      operationId: getSkill
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID (UUID) or slug of the skill.
+      responses:
+        '200':
+          description: Skill details
+        '404':
+          description: Skill not found
+    put:
+      summary: Update a Skill
+      description: Updates the metadata of a specific skill.
+      operationId: updateSkill
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the skill.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSkillRequest'
+      responses:
+        '200':
+          description: Skill updated successfully
+        '404':
+          description: Skill not found
+    delete:
+      summary: Delete a Skill
+      description: Deletes a specific skill and all its versions/files.
+      operationId: deleteSkill
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the skill.
+      responses:
+        '200':
+          description: Skill deleted successfully
+        '404':
+          description: Skill not found
+  /v1/skills/{id}/versions:
+    get:
+      summary: List Skill Versions
+      description: Lists all versions of a skill.
+      operationId: listSkillVersions
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+      responses:
+        '200':
+          description: List of versions
+    post:
+      summary: Create a Skill Version
+      description: Creates a new empty draft version.
+      operationId: createSkillVersion
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+      responses:
+        '201':
+          description: Version created successfully
+  /v1/skills/{id}/versions/{version}:
+    get:
+      summary: Get a Skill Version
+      description: Retrieves details of a specific skill version.
+      operationId: getSkillVersion
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+      responses:
+        '200':
+          description: Version details
+        '404':
+          description: Version not found
+    delete:
+      summary: Delete a Skill Version
+      description: Deletes a draft version.
+      operationId: deleteSkillVersion
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+      responses:
+        '200':
+          description: Version deleted successfully
+        '409':
+          description: Only draft versions can be deleted
+  /v1/skills/{id}/versions/{version}/promote:
+    post:
+      summary: Promote a Skill Version
+      description: Promotes a version status (draft -> stable -> live).
+      operationId: promoteSkillVersion
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+      responses:
+        '200':
+          description: Version promoted successfully
+  /v1/skills/{id}/versions/{version}/demote:
+    post:
+      summary: Demote a Skill Version
+      description: Demotes a live version back to stable.
+      operationId: demoteSkillVersion
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+      responses:
+        '200':
+          description: Version demoted successfully
+  /v1/skills/{id}/versions/{version}/archive:
+    post:
+      summary: Archive a Skill Version
+      description: Archives a version.
+      operationId: archiveSkillVersion
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+      responses:
+        '200':
+          description: Version archived successfully
+  /v1/skills/{id}/versions/{version}/duplicate:
+    post:
+      summary: Duplicate a Skill Version
+      description: Creates a new draft version by duplicating this version's files.
+      operationId: duplicateSkillVersion
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+      responses:
+        '201':
+          description: Version duplicated successfully
+  /v1/skills/{id}/versions/{version}/upload:
+    post:
+      summary: Upload a ZIP Archive
+      description: Uploads a ZIP file containing files to replace the existing ones in a draft version.
+      operationId: uploadSkillZip
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+                - file
+      responses:
+        '200':
+          description: ZIP file processed and replaced successfully
+  /v1/skills/{id}/versions/{version}/download:
+    get:
+      summary: Download ZIP Archive
+      description: Packs and downloads all files of this version as a ZIP file.
+      operationId: downloadSkillZip
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+      responses:
+        '200':
+          description: The packed ZIP archive
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+  /v1/skills/{id}/versions/{version}/files:
+    get:
+      summary: List Files in Version
+      description: Lists metadata of all files in this version.
+      operationId: listSkillFiles
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+      responses:
+        '200':
+          description: List of files metadata
+    post:
+      summary: Upsert an Individual File
+      description: Creates or updates an individual file inside a draft version.
+      operationId: upsertSkillFile
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertFileRequest'
+      responses:
+        '200':
+          description: File saved successfully
+    put:
+      summary: Update an Individual File
+      description: Updates an individual file inside a draft version.
+      operationId: updateSkillFile
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertFileRequest'
+      responses:
+        '200':
+          description: File saved successfully
+    delete:
+      summary: Delete an Individual File
+      description: Deletes an individual file from a draft version.
+      operationId: deleteSkillFile
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+        - name: file_path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The path of the file to delete.
+      responses:
+        '200':
+          description: File deleted successfully
+  /v1/skills/{id}/versions/{version}/files/content:
+    get:
+      summary: Get File Content
+      description: Retrieves the path and raw text content of an individual file.
+      operationId: getSkillFileContent
+      tags:
+        - Skills
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or slug of the skill.
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The version number.
+        - name: file_path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The path of the file.
+      responses:
+        '200':
+          description: File content details
 components:
   securitySchemes:
     BearerAuth:
@@ -3679,13 +4736,13 @@ components:
           type: string
           format: uuid
           description: Unique identifier.
-        team_id:
+        project_id:
           type: string
           format: uuid
-          description: Unique identifier of the team.
+          description: Unique identifier of the project the prompt belongs to.
         slug:
           type: string
-          description: Unique slug within the team.
+          description: Unique slug within the project.
         name:
           type: string
           description: Name of the prompt container.
@@ -3706,7 +4763,7 @@ components:
           format: date-time
       required:
         - id
-        - team_id
+        - project_id
         - slug
         - name
         - description
@@ -3739,6 +4796,22 @@ components:
             - live
             - archived
           description: Active lifecycle status of this template version.
+        model:
+          type: string
+          nullable: true
+          description: Optional `provider/model` identifier intended to execute this prompt version.
+          example: anthropic/claude-opus-4-6
+        model_params:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Optional provider-specific model parameters. Nested values are supported.
+          example:
+            temperature: 0.7
+            max_tokens: 1024
+            thinking:
+              type: enabled
+              budget_tokens: 512
         created_at:
           type: string
           format: date-time
@@ -3758,6 +4831,8 @@ components:
         - version
         - template
         - status
+        - model
+        - model_params
         - created_at
         - published_at
         - tags
@@ -3791,11 +4866,26 @@ components:
           items:
             type: string
           description: List of tag strings assigned to this version.
+        model:
+          type: string
+          nullable: true
+          description: Optional `provider/model` identifier intended to execute this prompt version.
+          example: anthropic/claude-opus-4-6
+        model_params:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Optional provider-specific model parameters. Nested values are supported.
+          example:
+            temperature: 0.7
+            max_tokens: 1024
       required:
         - rendered
         - version
         - slug
         - tags
+        - model
+        - model_params
     PromptPayload:
       type: object
       properties:
@@ -3860,6 +4950,86 @@ components:
           type: string
           description: Brief summary explaining the prompt purpose.
           example: Useful greeting prompt
+    Skill:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - name
+        - slug
+    SkillVersion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        skill_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - skill_id
+        - version
+        - status
+    CreateSkillRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+      required:
+        - name
+    UpdateSkillRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+    UpsertFileRequest:
+      type: object
+      properties:
+        file_path:
+          type: string
+        content:
+          type: string
+      required:
+        - file_path
+        - content
     RegisterRequest:
       type: object
       properties:
@@ -3958,8 +5128,10 @@ components:
         org_id:
           type: string
           format: uuid
+          description: Organization that owns the API key.
         team_ids:
           type: array
+          description: Optional list of teams the key can access. Omit or pass an empty array for organization-wide access.
           items:
             type: string
             format: uuid
@@ -4017,6 +5189,91 @@ components:
         created_at:
           type: string
           format: date-time
+    CreateProjectRequest:
+      type: object
+      required:
+        - team_id
+        - name
+      properties:
+        team_id:
+          type: string
+          format: uuid
+          description: The team that will own the project.
+        name:
+          type: string
+          description: Human-readable project name.
+        slug:
+          type: string
+          description: Optional normalized slug; derived from the name when omitted.
+    Project:
+      type: object
+      required:
+        - id
+        - owning_team_id
+        - name
+        - slug
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        owning_team_id:
+          type: string
+          format: uuid
+          description: The team that owns the project.
+        name:
+          type: string
+          description: Human-readable project name, unique within the owning team.
+        slug:
+          type: string
+          description: Normalized identifier, unique within the owning team.
+        created_at:
+          type: string
+          format: date-time
+    ProjectResponse:
+      type: object
+      required:
+        - project
+      properties:
+        project:
+          $ref: '#/components/schemas/Project'
+    GrantProjectAccessRequest:
+      type: object
+      required:
+        - team_id
+      properties:
+        team_id:
+          type: string
+          format: uuid
+          description: The team to grant access to. Must be in the owning team's organization.
+    ProjectAccess:
+      type: object
+      required:
+        - project_id
+        - team_id
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        team_id:
+          type: string
+          format: uuid
+    ProjectAccessResponse:
+      type: object
+      required:
+        - access
+      properties:
+        access:
+          $ref: '#/components/schemas/ProjectAccess'
+    ProjectListResponse:
+      type: object
+      required:
+        - projects
+      properties:
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
     CreatePromptRequest:
       type: object
       properties:
@@ -4037,6 +5294,17 @@ components:
         template:
           type: string
           example: Hello, {{.name}}!
+        model:
+          type: string
+          description: Optional `provider/model` identifier intended to execute this prompt version.
+          example: anthropic/claude-opus-4-6
+        model_params:
+          type: object
+          additionalProperties: true
+          description: Optional provider-specific model parameters. Nested values are supported.
+          example:
+            temperature: 0.7
+            max_tokens: 1024
       required:
         - template
     UpdateVersionRequest:
@@ -4045,5 +5313,13 @@ components:
         template:
           type: string
           example: Hello, {{.name}}! Count is {{.count}}.
-      required:
-        - template
+        model:
+          type: string
+          description: Optional `provider/model` identifier intended to execute this prompt version.
+          example: openai/gpt-4.1-mini
+        model_params:
+          type: object
+          additionalProperties: true
+          description: Optional provider-specific model parameters. Nested values are supported.
+          example:
+            temperature: 0.2

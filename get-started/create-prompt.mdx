@@ -1,14 +1,14 @@
 ---
 title: "Create Your First Prompt"
-description: "Step-by-step tutorial on creating a prompt container, authoring a prompt template, and rendering it dynamically with variables."
+description: "Step-by-step tutorial on creating a project, prompt container, authoring a prompt template, and rendering it dynamically with variables."
 ---
 
 Once you have set up your local environment and obtained a programmatic API key, you can begin configuring your prompt infrastructure. px0 decouples your raw prompt strings from your codebase, letting you version, promote, and render them dynamically.
 
-This tutorial guides you through creating a prompt container, authoring a template version, and rendering it using both draft and live lifecycles.
+This tutorial guides you through creating a project, a prompt container, authoring a template version, and rendering it using both draft and live lifecycles.
 
 <Note>
-  You can also perform all of these actions (creating prompts, managing template versions, and promoting versions to live) directly through the user-friendly px0 Web Console at [http://localhost:8000](http://localhost:8000). If you prefer configuring your prompt infrastructure programmatically using our API, you can follow the detailed step-by-step instructions below.
+  You can also perform all of these actions (creating projects, managing template versions, and promoting versions to live) directly through the user-friendly px0 Web Console at [http://localhost:8000](http://localhost:8000). If you prefer configuring your prompt infrastructure programmatically using our API, you can follow the detailed step-by-step instructions below.
 </Note>
 
 ## Prerequisites
@@ -18,7 +18,7 @@ Before starting, ensure you have:
 - Started local services and created an account. See [Run px0 Locally](/get-started/run-locally) for details.
 - Retrieved your organization and team IDs and generated a programmatic API key. See [Get an Access Key](/get-started/get-access-key) for details.
 
-Export your session token, organization ID, team ID, and programmatic API key in your terminal:
+Export your session token, team ID, and programmatic API key in your terminal:
 
 ```bash
 export PX0_ACCESS_TOKEN="your_session_token"
@@ -26,14 +26,33 @@ export PX0_TEAM_ID="your_team_id"
 export PX0_API_KEY="your_programmatic_api_key"
 ```
 
-## 1. Create a Prompt Container
+## 1. Create a Project
 
-A prompt container groups different versions of a prompt under your team. Creating a prompt requires a name. Specifying a slug is optional; if omitted, px0 automatically generates and normalizes a slug from the prompt name. For example, "Greeting Prompt" automatically resolves to the slug `greeting_prompt`.
+Create a project under your team. A project is a named container for your prompts and skills.
+
+Run the following request to create a project:
+
+```bash
+curl -i -X POST http://localhost:8000/v1/projects \
+  -H "Authorization: Bearer ${PX0_ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"team_id": "'"${PX0_TEAM_ID}"'", "name": "Main Project", "slug": "main"}'
+```
+
+Save the project ID returned in the JSON response as an environment variable:
+
+```bash
+export PX0_PROJECT_ID="your_project_id_here"
+```
+
+## 2. Create a Prompt Container
+
+A prompt container groups different versions of a prompt under your project. Creating a prompt requires a name. Specifying a slug is optional; if omitted, px0 automatically generates and normalizes a slug from the prompt name. For example, "Greeting Prompt" automatically resolves to the slug `greeting_prompt`.
 
 Run the following request to create a prompt with an explicit slug of `greeting`:
 
 ```bash
-curl -i -X POST http://localhost:8000/v1/teams/${PX0_TEAM_ID}/prompts \
+curl -i -X POST http://localhost:8000/v1/projects/${PX0_PROJECT_ID}/prompts \
   -H "Authorization: Bearer ${PX0_ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"name": "Greeting Prompt", "slug": "greeting"}'
@@ -45,7 +64,7 @@ Save the prompt ID returned in the JSON response as an environment variable:
 export PX0_PROMPT_ID="your_prompt_id_here"
 ```
 
-## 2. Create a Prompt Version
+## 3. Create a Prompt Version
 
 Create a template version inside your prompt container. Templates use a powerful syntax to insert dynamic variables. See the [Template Syntax](/template-syntax) guide for complete formatting and structures.
 
@@ -64,7 +83,7 @@ Note the integer version number returned in the response payload (for a new prom
 export PX0_PROMPT_VERSION_NUM=1
 ```
 
-## 3. Render Your Prompt Template
+## 4. Render Your Prompt Template
 
 px0 offers two main approaches to rendering prompt templates. You can render any draft or specific version directly, or promote a version to live and render the default live endpoint.
 
@@ -75,7 +94,7 @@ You can render any specific version (including raw drafts) directly by specifyin
 Execute the render request by supplying values for the variables specified in your template:
 
 ```bash
-curl -i -X POST http://localhost:8000/v1/prompts/greeting/versions/${PX0_PROMPT_VERSION_NUM}/render \
+curl -i -X POST http://localhost:8000/v1/projects/${PX0_PROJECT_ID}/prompts/greeting/versions/${PX0_PROMPT_VERSION_NUM}/render \
   -H "Authorization: Bearer ${PX0_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"variables": {"name": "Alice"}}'
@@ -85,7 +104,7 @@ curl -i -X POST http://localhost:8000/v1/prompts/greeting/versions/${PX0_PROMPT_
 
 In production, you usually want to render the current active version without hardcoding version numbers in your application. This allows you to update prompt strings on the fly without making code changes.
 
-To enable this, promote your prompt version through the lifecycle stages: `draft` to `stable`, and then `stable` to `live`.
+To enable this, promote your prompt version through the lifecycle stages: draft to stable, and then stable to live.
 
 #### Step 1: Promote to Stable
 
@@ -103,10 +122,10 @@ curl -i -X POST http://localhost:8000/v1/prompts/${PX0_PROMPT_ID}/versions/${PX0
 
 #### Step 3: Render the Live Prompt
 
-Once promoted to `live`, render the default live prompt endpoint without supplying a version number:
+Once promoted to live, render the default live prompt endpoint without supplying a version number:
 
 ```bash
-curl -i -X POST http://localhost:8000/v1/prompts/greeting/render \
+curl -i -X POST http://localhost:8000/v1/projects/${PX0_PROJECT_ID}/prompts/greeting/render \
   -H "Authorization: Bearer ${PX0_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"variables": {"name": "Bob"}}'
@@ -116,6 +135,7 @@ Now you can update the template or create new versions and promote them to live.
 
 ## Next Steps
 
-Now that you have successfully set up local services and rendered a prompt template, you can configure observability to monitor system performance under load.
+Now that you have successfully set up local services and rendered a prompt template, you can proceed to set up the Skills Registry.
 
+- [Getting Started with the Skills Registry](/get-started/create-skill)
 - [Setup Telemetry](/get-started/setup-telemetry)

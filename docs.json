@@ -17,6 +17,7 @@
           "get-started/run-locally",
           "get-started/get-access-key",
           "get-started/create-prompt",
+          "get-started/create-skill",
           "get-started/setup-telemetry"
         ]
       },
