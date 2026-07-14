@@ -45,9 +45,6 @@ export PX0_PROJECT_ID="your_project_id_here"
 ```
 
 ## 2. Create a Skill Container
-
-A skill container groups different versions of a custom skill under your project. You can create a skill inside your project in two ways: using a JSON payload to initialize an empty skill, or uploading a ZIP package at creation time.
-
 ### Option A: Create an Empty Skill Container
 
 This initializes the skill with version 1 as an empty draft.
@@ -90,23 +87,23 @@ curl -i -X POST http://localhost:8000/v1/projects/${PX0_PROJECT_ID}/skills \
   -F "file=@math-skill.zip"
 ```
 
-## 3. Upload a ZIP to a Draft Version
+## 3. Upload a ZIP Archive as a New Version
 
-If you created your skill as empty or want to overwrite all files in an active draft version, you can upload a ZIP archive directly to the targeted draft version.
+If you want to upload a package of files as a new draft version, you can upload a ZIP archive directly. This creates a new draft version containing the files inside the uploaded ZIP archive.
 
-First, create another ZIP archive with updated files:
+First, create a ZIP archive containing your files:
 
 ```bash
 echo "const sub = (a, b) => a - b;" > sub.js
-zip -r calculator-v1.zip sub.js
+zip -r calculator-v2.zip sub.js
 ```
 
-Then, upload the ZIP file to overwrite all files in Draft Version 1:
+Then, upload the ZIP file using multipart form-data to create a new version:
 
 ```bash
-curl -i -X POST http://localhost:8000/v1/skills/${PX0_SKILL_ID}/versions/1/upload \
+curl -i -X PUT http://localhost:8000/v1/skills/${PX0_SKILL_ID}/versions \
   -H "Authorization: Bearer ${PX0_ACCESS_TOKEN}" \
-  -F "file=@calculator-v1.zip"
+  -F "file=@calculator-v2.zip"
 ```
 
 ## 4. Retrieve and Edit Individual Files
@@ -133,13 +130,31 @@ curl -i -X GET "http://localhost:8000/v1/skills/${PX0_SKILL_ID}/versions/1/files
 
 ### 3. Upsert or Edit an Individual File
 
-You can add a new file or update an existing one in the draft version workspace:
+You can add a new file or update an existing one in the draft version workspace. If the file contains template variables (using Go's template syntax), px0 can dynamically render the template variables on the fly. You can pass the template variables as query parameters or in the request body.
+
+Create a new file `config.json` containing template variables:
 
 ```bash
 curl -i -X POST http://localhost:8000/v1/skills/${PX0_SKILL_ID}/versions/1/files \
   -H "Authorization: Bearer ${PX0_ACCESS_TOKEN}" \
   -H "Content-Type: application/json" \
-  -d '{"file_path": "config.json", "content": "{\"debug\": true}"}'
+  -d '{"file_path": "config.json", "content": "{\"debug\": {{ .debug }}, \"env\": \"{{ .env }}\"}"}'
+```
+
+To retrieve the file and dynamically render its template variables, pass the values as query parameters:
+
+```bash
+curl -i -X GET "http://localhost:8000/v1/skills/${PX0_SKILL_ID}/versions/1/files/content?file_path=config.json&debug=true&env=production" \
+  -H "Authorization: Bearer ${PX0_ACCESS_TOKEN}"
+```
+
+In the response, px0 returns the file content rendered with your variables:
+
+```json
+{
+  "file_path": "config.json",
+  "content": "{\"debug\": true, \"env\": \"production\"}"
+}
 ```
 
 ### 4. Delete an Individual File
@@ -204,18 +219,26 @@ curl -i -X POST http://localhost:8000/v1/skills/${PX0_SKILL_ID}/versions/1/archi
 
 ## 6. Download a Skill as a ZIP Package
 
-At any point in the lifecycle, you can fetch the entire file structure of a specific version as a self-contained ZIP archive:
+At any point in the lifecycle, you can fetch the entire file structure of a specific version as a self-contained ZIP archive. If your files contain template variables, px0 can dynamically render them during the packaging process using variables passed in query parameters, request body, or a `variables` JSON string parameter.
+
+To download the ZIP archive and dynamically render all template files (such as `config.json`):
 
 ```bash
 curl -L -o downloaded-skill.zip \
   -H "Authorization: Bearer ${PX0_ACCESS_TOKEN}" \
-  http://localhost:8000/v1/skills/${PX0_SKILL_ID}/versions/1/download
+  "http://localhost:8000/v1/skills/${PX0_SKILL_ID}/versions/1/download?debug=true&env=production"
 ```
 
-Verify your downloaded package locally:
+Verify your downloaded package locally by extracting `config.json`:
 
 ```bash
-unzip -l downloaded-skill.zip
+unzip -p downloaded-skill.zip config.json
+```
+
+The output shows that the template has been dynamically rendered:
+
+```json
+{"debug": true, "env": "production"}
 ```
 
 ## Summary of REST Endpoints
@@ -229,13 +252,13 @@ unzip -l downloaded-skill.zip
 | `DELETE` | `/v1/skills/:id` | Delete skill and all versions/files | Editor / Admin |
 | `GET` | `/v1/skills/:id/versions` | List versions for a skill | Viewer / Editor / Admin |
 | `POST` | `/v1/skills/:id/versions` | Create an empty draft version | Editor / Admin |
+| `PUT` | `/v1/skills/:id/versions` | Upload ZIP as a new draft version | Editor / Admin |
 | `GET` | `/v1/skills/:id/versions/:version` | Get version details | Viewer / Editor / Admin |
 | `DELETE` | `/v1/skills/:id/versions/:version` | Delete draft version | Editor / Admin |
 | `POST` | `/v1/skills/:id/versions/:version/promote` | Promote version (draft to stable to live) | Editor / Admin |
 | `POST` | `/v1/skills/:id/versions/:version/demote` | Demote version (live to stable) | Editor / Admin |
 | `POST` | `/v1/skills/:id/versions/:version/archive` | Archive version | Editor / Admin |
 | `POST` | `/v1/skills/:id/versions/:version/duplicate` | Branch/duplicate version files to new draft | Editor / Admin |
-| `POST` | `/v1/skills/:id/versions/:version/upload` | Upload ZIP to replace all draft files | Editor / Admin |
 | `GET` | `/v1/skills/:id/versions/:version/download` | Download version files as ZIP | Viewer / Editor / Admin |
 | `GET` | `/v1/skills/:id/versions/:version/files` | List file structures (no content payload) | Viewer / Editor / Admin |
 | `GET` | `/v1/skills/:id/versions/:version/files/content` | Retrieve individual file content | Viewer / Editor / Admin |
