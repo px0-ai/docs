@@ -9,34 +9,43 @@
   },
   "favicon": "/favicon.ico",
   "navigation": {
-    "pages": [
-      "index",
+    "tabs": [
       {
-        "group": "Getting Started",
+        "tab": "Docs",
+        "icon": "book-open",
         "pages": [
-          "get-started/run-locally",
-          "get-started/get-access-key",
-          "get-started/create-prompt",
-          "get-started/create-skill",
-          "get-started/setup-telemetry"
+          "index"
+        ],
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "get-started/run-locally",
+              "get-started/get-access-key",
+              "get-started/create-prompt",
+              "get-started/create-skill",
+              "get-started/setup-telemetry"
+            ]
+          },
+          {
+            "group": "SDK",
+            "pages": [
+              "sdk/python",
+              "sdk/typescript",
+              "sdk/go"
+            ]
+          },
+          {
+            "group": "References",
+            "pages": [
+              "template-syntax"
+            ]
+          }
         ]
       },
       {
-        "group": "SDK",
-        "pages": [
-          "sdk/python",
-          "sdk/typescript",
-          "sdk/go"
-        ]
-      },
-      {
-        "group": "References",
-        "pages": [
-          "template-syntax"
-        ]
-      },
-      {
-        "group": "API Reference",
+        "tab": "API Reference",
+        "icon": "code",
         "openapi": "openapi.yaml"
       }
     ]
