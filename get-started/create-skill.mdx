@@ -241,33 +241,9 @@ The output shows that the template has been dynamically rendered:
 {"debug": true, "env": "production"}
 ```
 
-## Summary of REST Endpoints
-
-| HTTP Method | Route | Description | Role Requirement |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/v1/projects/:projectID/skills` | Create a skill (accepts JSON or ZIP form-data) | Editor / Admin |
-| `GET` | `/v1/projects/:projectID/skills` | List skills in a project | Viewer / Editor / Admin |
-| `GET` | `/v1/skills/:id` | Get skill metadata (ID or slug) | Viewer / Editor / Admin |
-| `PUT` | `/v1/skills/:id` | Update skill metadata (ID or slug) | Editor / Admin |
-| `DELETE` | `/v1/skills/:id` | Delete skill and all versions/files | Editor / Admin |
-| `GET` | `/v1/skills/:id/versions` | List versions for a skill | Viewer / Editor / Admin |
-| `POST` | `/v1/skills/:id/versions` | Create an empty draft version | Editor / Admin |
-| `PUT` | `/v1/skills/:id/versions` | Upload ZIP as a new draft version | Editor / Admin |
-| `GET` | `/v1/skills/:id/versions/:version` | Get version details | Viewer / Editor / Admin |
-| `DELETE` | `/v1/skills/:id/versions/:version` | Delete draft version | Editor / Admin |
-| `POST` | `/v1/skills/:id/versions/:version/promote` | Promote version (draft to stable to live) | Editor / Admin |
-| `POST` | `/v1/skills/:id/versions/:version/demote` | Demote version (live to stable) | Editor / Admin |
-| `POST` | `/v1/skills/:id/versions/:version/archive` | Archive version | Editor / Admin |
-| `POST` | `/v1/skills/:id/versions/:version/duplicate` | Branch/duplicate version files to new draft | Editor / Admin |
-| `GET` | `/v1/skills/:id/versions/:version/download` | Download version files as ZIP | Viewer / Editor / Admin |
-| `GET` | `/v1/skills/:id/versions/:version/files` | List file structures (no content payload) | Viewer / Editor / Admin |
-| `GET` | `/v1/skills/:id/versions/:version/files/content` | Retrieve individual file content | Viewer / Editor / Admin |
-| `POST` | `/v1/skills/:id/versions/:version/files` | Create or update a file in draft | Editor / Admin |
-| `PUT` | `/v1/skills/:id/versions/:version/files` | Update an existing file in draft | Editor / Admin |
-| `DELETE` | `/v1/skills/:id/versions/:version/files` | Delete an individual file from draft | Editor / Admin |
-
 ## Next Steps
 
-Now that you have successfully set up local services and managed a skill, you can proceed to configure telemetry to observe your workspace.
+Now that you have successfully set up local services and managed a skill, you can proceed to configure other registries or set up telemetry to observe your workspace.
 
+- [Getting Started with the Tools Registry](/get-started/create-tool)
 - [Setup Telemetry](/get-started/setup-telemetry)

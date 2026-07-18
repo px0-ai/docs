@@ -25,6 +25,7 @@
               "get-started/create-prompt",
               "get-started/run-prompt",
               "get-started/create-skill",
+              "get-started/create-tool",
               "get-started/setup-telemetry"
             ]
           },
