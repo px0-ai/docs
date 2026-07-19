@@ -25,14 +25,19 @@
               "get-started/create-prompt",
               "get-started/run-prompt",
               "get-started/create-skill",
-              "get-started/create-tool",
-              "get-started/setup-telemetry"
+              "get-started/create-tool"
             ]
           },
           {
             "group": "Search",
             "pages": [
               "search/configure"
+            ]
+          },
+          {
+            "group": "Observability",
+            "pages": [
+              "observability/setup"
             ]
           },
           {
