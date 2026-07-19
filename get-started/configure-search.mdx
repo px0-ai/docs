@@ -1,0 +1,157 @@
+---
+title: "Configure Search"
+description: "Learn about the px0 search architecture, supported lexical and semantic search providers, and how to configure search behavior."
+---
+
+px0 features a highly configurable, dual-engine registry search system exposed via `GET /v1/search`. It allows searching through prompts, skills, and tools across projects using both lexical (keyword) and semantic (vector) search, ranking them dynamically using Reciprocal Rank Fusion (RRF).
+
+By separating the API contract from the underlying indexing infrastructure, px0 gives you the flexibility to start with zero-dependency PostgreSQL full-text search and scale up to enterprise-grade search engines or vector databases as your registry grows.
+
+## Search Architecture
+
+The px0 search engine employs a hybrid retrieval pipeline designed for high precision, recall, and safety. When a client performs a search, the system coordinates multiple components:
+
+```
+                  ┌────────────────────────────────────────┐
+                  │          GET /v1/search                │
+                  └───────────────────┬────────────────────┘
+                                      │
+                   ┌──────────────────┴──────────────────┐
+                   ▼                                     ▼
+        ┌─────────────────────┐               ┌─────────────────────┐
+        │    FTS Retriever    │               │  Vector Retriever   │
+        │  (Lexical Matches)  │               │ (Semantic Matches)  │
+        └──────────┬──────────┘               └──────────┬──────────┘
+                   │                                     │
+                   └──────────────────┬──────────────────┘
+                                      ▼
+                  ┌────────────────────────────────────────┐
+                  │      Reciprocal Rank Fusion (RRF)      │
+                  └───────────────────┬────────────────────┘
+                                      │
+                                      ▼
+                  ┌────────────────────────────────────────┐
+                  │      Project-Scoped Hydration Query    │
+                  │       (RBAC Security Enforcement)      │
+                  └───────────────────┬────────────────────┘
+                                      │
+                                      ▼
+                  ┌────────────────────────────────────────┐
+                  │          Ranked Search Results         │
+                  └────────────────────────────────────────┘
+```
+
+### 1. Dual-Retriever Slots
+The search engine routes the natural-language query `q` to two independent, isolated retriever slots:
+* **The FTS Retriever:** Locates precise, keyword-based lexical matches.
+* **The Vector Retriever:** Locates concept-based semantic matches using dense embedding vectors.
+
+### 2. Reciprocal-Rank Fusion (RRF)
+Rather than trying to compare raw, incompatible scores across different search technologies (e.g., matching cosine similarity scores from a vector database against full-text BM25 or Postgres FTS rank weights), px0 utilizes **Reciprocal-Rank Fusion (RRF)**. 
+
+RRF combines the ordered list of candidates from both retrievers using their rank positions rather than their absolute scores. This ensures a balanced, deterministic, and highly accurate unified results list.
+
+### 3. Hydration & Security Enforcement
+Once RRF determines the candidate ranks, the fused references are hydrated through a project-scoped database query. This serves as a vital **defense-in-depth boundary**: even if a remote search provider is misconfigured or compromised, the hydration phase strictly filters results based on the requester's actual RBAC scope, preventing any unauthorized exposure of entity metadata.
+
+---
+
+## Supported Search Providers
+
+You can configure both the lexical and semantic engines out of the box using standard environment variables. This allows you to hot-swap search backends based on your hosting or performance requirements.
+
+### Lexical Providers (`SEARCH_FTS_PROVIDER`)
+
+The lexical engine focuses on keyword matches. Configure this using the `SEARCH_FTS_PROVIDER` environment variable:
+
+| Provider | Value | Description |
+| :--- | :--- | :--- |
+| **PostgreSQL (Default)** | `postgres` | Uses PostgreSQL built-in full-text search. Highly optimized, zero external dependencies. |
+| **Elasticsearch** | `elasticsearch` | Connects to an Elasticsearch cluster. Best for high-throughput, enterprise-grade search. |
+| **OpenSearch** | `opensearch` | Connects to an AWS OpenSearch or self-hosted OpenSearch cluster. |
+| **Algolia** | `algolia` | Integrates with Algolia's fully-managed, high-speed SaaS search platform. |
+
+### Semantic Providers (`SEARCH_VECTOR_PROVIDER`)
+
+The semantic engine leverages vector embeddings to find conceptually related entities. Configure this using the `SEARCH_VECTOR_PROVIDER` environment variable:
+
+| Provider | Value | Description |
+| :--- | :--- | :--- |
+| **None (Default)** | `none` | Disables vector search. Only lexical FTS retrieval will be used. |
+| **Qdrant** | `qdrant` | Integrates with Qdrant, a high-performance vector search database. |
+| **Pinecone** | `pinecone` | Connects to Pinecone, a fully-managed, developer-friendly vector database. |
+
+<Note>
+  If a provider configuration is incomplete, px0 is designed to **fail fast during startup** rather than silently falling back to a different provider. This prevents silent misconfiguration issues in production environments.
+</Note>
+
+---
+
+## PostgreSQL Full-Text Indexes (FTS)
+
+When using the default `postgres` lexical provider, search queries are powered by PostgreSQL's native FTS system. 
+
+### Generation & Indexing
+To ensure peak search performance and eliminate stale search indexes, px0 implements a stored generated `tsvector` column directly on the `prompts`, `skills`, and `tools` tables. 
+* **Real-time updates:** PostgreSQL recomputes the `tsvector` in the same database transaction as any insert or update. No asynchronous backfill workers or event queues are needed.
+* **GIN Indexes:** Each generated column has a GIN (Generalized Inverted Index) index associated with it. GIN indexes are specifically designed for inverted membership lookups (`tsvector @@ tsquery`), avoiding expensive sequential row scans.
+
+### Weighted Relevance
+Each document uses the English text search configuration and applies weighted attributes to prioritize direct matches:
+
+| Field | Weight | Rationale |
+| :--- | :--- | :--- |
+| **Name** | `A` | A direct name match is the strongest indicator of user intent. |
+| **Description** | `B` | Descriptions contain rich context but are broader and more descriptive. |
+| **Slug** | `C` | Slugs are useful exact identifiers but often contain abbreviated tokens. |
+
+During searches, `websearch_to_tsquery('english', q)` is utilized to parse user queries safely, and `ts_rank_cd` is used to order matching candidates before merging them via RRF.
+
+---
+
+## Configuration via Environment Variables
+
+To configure your desired search providers, define the following variables in your environment or `.env` file:
+
+### Example: PostgreSQL FTS Only (Default)
+```env
+# Enable PostgreSQL Full-Text Search
+SEARCH_FTS_PROVIDER="postgres"
+
+# Disable Vector Semantic Search
+SEARCH_VECTOR_PROVIDER="none"
+```
+
+### Example: Hybrid FTS + Vector (Elasticsearch + Qdrant)
+```env
+# Configure FTS
+SEARCH_FTS_PROVIDER="elasticsearch"
+ELASTICSEARCH_URL="http://localhost:9200"
+ELASTICSEARCH_API_KEY="your_elasticsearch_api_key"
+
+# Configure Vector Search
+SEARCH_VECTOR_PROVIDER="qdrant"
+QDRANT_URL="http://localhost:6333"
+QDRANT_API_KEY="your_qdrant_api_key"
+```
+
+---
+
+## Code Customization & Extension
+
+px0's search infrastructure is highly modular. You can easily add new searchable entities or implement custom search providers.
+
+### 1. Adding a New Searchable Entity
+To make a new registry entity searchable without altering the public API contract:
+1. Add its singular name/value to `model.SearchEntityType` and register it in the OpenAPI `type` enum.
+2. Create a new SQL migration adding a generated `tsvector` search column and a GIN index on the entity's database table.
+3. Update each implemented search retriever to support the new entity type with an authorization-scoped query.
+4. Add a corresponding hydration query to `store.GetSearchResults` in the persistence layer.
+5. Write tests covering unfiltered search, type-filtered search, metadata updates, and RBAC isolation for the new entity.
+
+### 2. Implementing a Custom Search Provider
+You can add a custom lexical or semantic search provider by implementing a Go interface:
+1. Implement the `search.Retriever` interface defined in the codebase.
+2. Wire the provider name and configuration initialization inside `internal/search/config.go`.
+3. Apply filter boundaries: Every retriever implementation receives the permitted project IDs and requested entity types and must apply both constraints at the provider boundary.
+4. If building a vector store provider, ensure that you persist `project_id` and `type` as filterable metadata alongside each embedding vector.
