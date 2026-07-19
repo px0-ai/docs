@@ -11,36 +11,6 @@ By separating the API contract from the underlying indexing infrastructure, px0 
 
 The px0 search engine employs a hybrid retrieval pipeline designed for high precision, recall, and safety. When a client performs a search, the system coordinates multiple components:
 
-```
-                  ┌────────────────────────────────────────┐
-                  │          GET /v1/search                │
-                  └───────────────────┬────────────────────┘
-                                      │
-                   ┌──────────────────┴──────────────────┐
-                   ▼                                     ▼
-        ┌─────────────────────┐               ┌─────────────────────┐
-        │    FTS Retriever    │               │  Vector Retriever   │
-        │  (Lexical Matches)  │               │ (Semantic Matches)  │
-        └──────────┬──────────┘               └──────────┬──────────┘
-                   │                                     │
-                   └──────────────────┬──────────────────┘
-                                      ▼
-                  ┌────────────────────────────────────────┐
-                  │      Reciprocal Rank Fusion (RRF)      │
-                  └───────────────────┬────────────────────┘
-                                      │
-                                      ▼
-                  ┌────────────────────────────────────────┐
-                  │      Project-Scoped Hydration Query    │
-                  │       (RBAC Security Enforcement)      │
-                  └───────────────────┬────────────────────┘
-                                      │
-                                      ▼
-                  ┌────────────────────────────────────────┐
-                  │          Ranked Search Results         │
-                  └────────────────────────────────────────┘
-```
-
 ### 1. Dual-Retriever Slots
 The search engine routes the natural-language query `q` to two independent, isolated retriever slots:
 * **The FTS Retriever:** Locates precise, keyword-based lexical matches.
