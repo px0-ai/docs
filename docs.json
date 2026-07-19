@@ -26,8 +26,13 @@
               "get-started/run-prompt",
               "get-started/create-skill",
               "get-started/create-tool",
-              "get-started/setup-telemetry",
-              "get-started/configure-search"
+              "get-started/setup-telemetry"
+            ]
+          },
+          {
+            "group": "Search",
+            "pages": [
+              "search/configure"
             ]
           },
           {
