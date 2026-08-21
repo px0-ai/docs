@@ -1,11 +1,69 @@
 ---
 title: "Introduction"
-description: "px0 is an open-source prompt infrastructure toolkit that lets you version, update, and govern prompts in production, eliminating the need to hardcode prompts or redeploy your application for prompt changes."
+description: "px0 is a local-first utility for building custom agents and workflows using natural language, then running them on a schedule. Everything it knows lives in plain Markdown files on your machine."
 ---
 
-## Benefits
+Build custom agents and workflows using natural language, then run them on a schedule.
 
-- Decouple prompt strings from codebase definitions to manage templates in a single control plane.
-- Promote new prompt versions instantly with zero CI/CD overhead or application redeployments.
-- Share standardized prompt templates across teams to align engineering practices.
-- Govern production environments by restricting version promotion to authorized administrators.
+Describe a recurring job in plain English and px0 writes it as a workflow you can run, schedule, and edit.
+
+Everything happens on your machine. Your workflows, your notes, and your conventions are plain Markdown files in one directory you own. There is no server, no account, and no hosted state to sign up for.
+
+Workflows do not stop at your laptop, though. Through [Composio](https://composio.dev), a workflow can reach hundreds of apps you already use: GitHub, Slack, Gmail, Google Calendar, Notion, Linear, Jira, Google Sheets, Salesforce, Stripe, Zendesk, Sentry, and over a thousand more.
+
+```bash
+px0 workflows new "every friday at 5pm, summarize the github pull requests I reviewed this week and post it to #eng-standup"
+```
+
+px0 asks what is genuinely ambiguous, finds the tools the job needs, shows you the list before authorizing anything, and writes the workflow file.
+
+## What px0 is for
+
+- Recurring reports you assemble by hand every week.
+- Chores that follow the same steps every time: draft the release notes, precheck a pull request, triage overnight alerts, file the standup update.
+- Work that has to sound like you, because px0 follows conventions you write down once.
+- A searchable library of everything you read, so you can ask questions across it later.
+
+## Workflows you could build
+
+Each of these is one sentence you type into `px0 workflows new`, and each becomes a file you can edit and put on a schedule.
+
+| What you want | Apps it touches |
+| :--- | :--- |
+| Every Friday, summarize the pull requests I reviewed and post it to #eng-standup | GitHub, Slack |
+| Each morning, brief me on today's meetings and the emails I have not replied to | Google Calendar, Gmail |
+| Turn last night's error spike into a triaged bug ticket | Sentry, Linear |
+| Post a Monday sprint status from our issue tracker to the team channel | Jira, Slack |
+| Draft release notes from the commits since the last tag and file them as a page | GitHub, Notion |
+| Log this week's revenue and refunds into the finance sheet | Stripe, Google Sheets |
+| Group this week's support tickets by theme and open issues for the top three | Zendesk, Linear |
+| Save every newsletter I star to my reading library | Gmail, px0 knowledge |
+
+## How it fits together
+
+- **Workflows** are the unit of work: Markdown files with YAML frontmatter, generated from your description and editable by hand.
+- **Tools** are how a workflow reaches outside px0. Every tool routes through Composio, and apps authorize themselves the first time a workflow needs one.
+- **Guidelines** are your conventions, inlined verbatim into prompts so output comes back in your voice.
+- **Knowledge** is the library of what you have read and kept, searchable and askable.
+- **Runs** are the record of everything px0 did, so any output can be traced back to its inputs.
+
+<Note>
+  px0 has no model backend of its own. It shells out to a coding agent CLI you already sign into — `claude`, `gemini`, `pi`, or `opencode` — and reuses that CLI's own login, model choice, and rate limits. [What leaves your machine](/reference/privacy) spells out exactly what that means for your data.
+</Note>
+
+## Start here
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/get-started/installation">
+    Install px0, pick a model backend, and scaffold your store.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/get-started/quickstart">
+    Get a real output in a handful of commands.
+  </Card>
+  <Card title="Core concepts" icon="diagram-project" href="/get-started/concepts">
+    The store, workflows, tools, guidelines, knowledge, and runs.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/reference/cli">
+    Every command, grouped by the entity it acts on.
+  </Card>
+</CardGroup>

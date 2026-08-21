@@ -1,0 +1,186 @@
+---
+title: "Run a workflow"
+description: "Running a workflow by hand: the picker, dry runs, passing inputs, where output goes, and how failures are reported."
+---
+
+```bash
+px0 workflows run friday-pr-digest
+```
+
+That is the whole command. Everything else on this page is about the cases where you want a little more control — trying a run safely, feeding it data, or working out why one failed.
+
+## Start with a dry run
+
+```bash
+px0 workflows run friday-pr-digest --dry-run
+```
+
+A dry run is not a simulation. It loads and validates the workflow, resolves every input for real (so read tools *are* called and you see the actual data), renders the prompt, and runs the model. The one thing it does not do is execute write tools — those are stubbed and recorded as stubbed in the run record.
+
+This is the right way to try a workflow whose output goes somewhere public. You see exactly what would have been posted, without posting it.
+
+The record is marked as a dry run, which matters later: `px0 runs list` labels it, and `px0 runs rerun` replays it *as a dry run* rather than firing the write tools the original deliberately stubbed. To execute for real, run the workflow directly.
+
+## Pick from a list
+
+Leave the id off and px0 shows you what you have:
+
+```bash
+px0 workflows run
+```
+
+```
+› Which workflow to run?
+  ↑/↓ to move, enter to select, q to cancel
+ ›  1. friday-pr-digest  Post a Friday digest of my PRs to #eng-standup
+    2. weekly-digest     Summarize the week
+```
+
+`j` and `k` move too, and typing a digit jumps straight to that row. Over a pipe it falls back to a plain numbered prompt.
+
+<Note>
+  `--stdin` requires an explicit workflow id. The picker would otherwise read its keystrokes from the same stream carrying your input.
+</Note>
+
+## Pass data in
+
+Two mechanisms, for two different shapes of input.
+
+**Named values** with `--input`, repeatable, available to the workflow body as `input.<key>`:
+
+```bash
+px0 workflows run summarize-url --input url=https://example.com/post --input tone=terse
+```
+
+**Piped text** with `--stdin`, which fills any input declared as `source: stdin`:
+
+```bash
+px0 workflows run summarize-any-url --stdin <<< "https://example.com/some-post"
+cat notes.md | px0 workflows run tidy-notes --stdin
+```
+
+## Where output goes
+
+A workflow's `output` frontmatter decides this, and you can override the target for one run:
+
+```bash
+px0 workflows run friday-pr-digest --output stdout
+px0 workflows run friday-pr-digest --output file
+```
+
+| Target | Behaviour |
+| :--- | :--- |
+| `stdout` | Printed to your terminal. The default. |
+| `file` | Written under `output/` in the store, with `{date}`, `{datetime}`, or `{time}` in the path expanded. |
+
+Every file output is confined to the store's `output/` directory. An absolute path, or a `..` that climbs out of it, is rejected at run time — the path can come from a model-written plan, so this is a boundary px0 enforces rather than trusts. Writes are serialized with a store-wide lock, so two concurrent runs targeting the same path cannot interleave.
+
+<Note>
+  A scheduled workflow must write to a file. There is nowhere for stdout to go at 5pm on a Friday when nobody is watching, so px0 rejects that combination at validation time rather than silently dropping the output.
+</Note>
+
+## Quiet and JSON output
+
+```bash
+px0 workflows run friday-pr-digest --quiet     # what the daemon uses: no decoration, no spinner
+px0 --json workflows run friday-pr-digest      # the full run record as JSON
+```
+
+`--json` gives you the same record `px0 runs show` prints, which is the easiest way to script on top of a run.
+
+## What a run actually does
+
+Understanding the stages makes failures much easier to read, because px0 names the stage that failed.
+
+<Steps>
+  <Step title="Load and validate">
+    The workflow file is parsed and cross-checked: every guideline file exists, every tool reference resolves, no write tool sits in `inputs`, the cron expression parses, the output target is valid.
+  </Step>
+  <Step title="Checkpoint hand edits">
+    Under the store lock, any edits you made in an editor since the last run are recorded as a new version — so the run you are about to do is attributable to a specific version of the file.
+  </Step>
+  <Step title="Resolve inputs">
+    Each input is resolved in order: a tool call, a retrieval query, stdin, or a nested sub-workflow. Results become the template context.
+  </Step>
+  <Step title="Render the prompt">
+    Guideline files are inlined verbatim — at an explicit `{{guidelines}}` placeholder if the body has one, otherwise prepended — and input values are interpolated into the body.
+  </Step>
+  <Step title="Run the model and its tool calls">
+    The prompt goes to your harness. The model may call anything in `tools`, turn by turn, and every call is recorded with its timing. Write tools are stubbed here if this is a dry run.
+  </Step>
+  <Step title="Route the output">
+    Printed to stdout or written under `output/`, per the workflow's `output` block and any `--output` override.
+  </Step>
+  <Step title="Write the run record">
+    Inputs, guideline versions, tool calls, timings, and outcome, saved whether the run succeeded or failed.
+  </Step>
+</Steps>
+
+## When something fails
+
+A failed run is still a recorded run. px0 persists the record first and then reports the failure, so you can always go back and read what happened.
+
+**A required input failed.** The run stops there:
+
+```
+required input 'recent_prs' failed: github is not connected yet
+```
+
+Mark an input `optional: true` if the workflow should degrade rather than stop. An optional input that fails resolves to nothing, the run continues, and the record marks it as degraded — which is the right call for a nice-to-have context source and the wrong call for the data the workflow is about.
+
+**An app is not authorized.** The failure carries the link you need:
+
+```
+✗ slack is not connected yet. Authorize it by opening:
+    https://backend.composio.dev/s/...
+```
+
+If you started a consent and never finished it, px0 says exactly that instead of minting a second link you would also leave open:
+
+```
+slack authorization was started but never completed -- open the URL px0
+printed for it and finish the browser consent
+```
+
+**A transient failure.** Network blips and Composio 5xx responses are retried with exponential backoff, up to `connectors.retries` times (default `3`), so a momentary outage does not fail a scheduled workflow.
+
+**The harness did not respond.** Every workflow depends on your coding agent CLI, so this fails the whole run. `px0 doctor` is the fastest way to confirm the harness itself is the problem rather than the workflow.
+
+**The output path is not allowed.** An unknown placeholder or a path that escapes `output/` fails the run with the offending value named, rather than writing a file somewhere surprising:
+
+```
+output.path has unknown placeholder(s): month -- supported: {date}, {datetime}, {time}
+```
+
+**The workflow file does not parse.** The file is skipped rather than crashing every other command, and it is named — with its line — by `px0 workflows list` and the `workflows` check in `px0 doctor`.
+
+### Exit codes
+
+Useful when a workflow runs inside a script or a CI job:
+
+| Code | Meaning |
+| :--- | :--- |
+| `0` | Success |
+| `1` | User error — bad arguments, no such workflow, no store, or a failed run |
+| `2` | Connector error — an app is unauthorized or unreachable |
+| `3` | Model error — the harness failed, timed out, or refused |
+| `4` | Integrity error — a `px0 doctor` check failed |
+
+A run that fails for any reason exits `1`, with the reason on stderr and the full detail in the run record. Codes `2` and `3` come from connector and harness failures raised outside a run — during a build, or while setting up a connection — so a script can tell "your Slack consent lapsed" apart from "this workflow is wrong".
+
+## Timeouts
+
+`timeout` in the frontmatter caps the wall clock for a run and defaults to `120s`. It accepts `ms`, `s`, `m`, and `h` suffixes. Raise it for workflows that fan out across many tool calls; a long-running scheduled job is better slow than truncated.
+
+## After the run
+
+```bash
+px0 runs                     # browse interactively
+px0 runs list --failed       # just the failures
+px0 runs output <run-id>     # what it produced
+px0 runs logs <run-id> -f    # follow the raw log
+px0 runs why <run-id>        # the provenance chain behind the result
+px0 runs rerun <run-id>      # do it again
+```
+
+See [Browse runs](/runs/browse) for the interactive view and what each field of a record means.

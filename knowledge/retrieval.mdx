@@ -1,0 +1,85 @@
+---
+title: "Retrieval backends"
+description: "Keyword search works out of the box with nothing to install. Semantic search is one config change plus a model download you explicitly consent to."
+---
+
+`retrieval.backend` decides how searching your library works. There are two options, and the default is genuinely usable — the second is an upgrade, not a fix for something broken.
+
+| Backend | What you get | Cost |
+| :--- | :--- | :--- |
+| `local` (default) | SQLite FTS5 keyword matching with BM25 ranking, embedded | Nothing to install |
+| `qmd` | Hybrid keyword + vector search with LLM reranking | Needs the qmd CLI and about 2GB of local models |
+
+## The local backend
+
+Keyword matching, embedded in px0, no server and no models. It is fast, it works offline, and it needs zero setup.
+
+Its one real limitation is worth stating plainly: it only matches words that are actually in the text. A search for "connection pooling" will not surface a passage that says "reusing database connections" — the same idea with no shared keywords. For a library you wrote or curated yourself, where you tend to remember the words used, this matters less than you might expect.
+
+## The qmd backend
+
+`qmd` adds vector search and reranking, so meaning matches even when vocabulary does not.
+
+```bash
+npm install -g @tobilu/qmd     # or: bun install -g @tobilu/qmd
+px0 config set retrieval.backend qmd
+px0 knowledge reindex
+```
+
+qmd needs Node.js 20 or newer. If it is not on your `PATH`, px0 says so and points you back at `local` rather than failing obscurely mid-search.
+
+### The model download is your call
+
+The first reindex after switching prints the download sizes and waits for an explicit `y`:
+
+```
+Local models needed for semantic search & reranking:
+--------------------------------------------------
+embeddinggemma-300M       ~300MB  (Embeddings)
+qwen3-reranker-0.6b       ~640MB  (Reranking)
+qmd-query-expansion-1.7B  ~1.1GB  (Expansion)
+--------------------------------------------------
+Total Download Size:      ~2.04GB
+--------------------------------------------------
+Download ~2.04GB of local models for semantic search? [y/N]
+```
+
+Decline and px0 keeps indexing keywords only. It degrades rather than breaks, and it will not ask again until you consent — nothing about px0 downloads two gigabytes onto your machine without asking.
+
+Your answer is recorded in the store, and `px0 doctor` reports both the consent state and whether your installed qmd matches the version px0 is pinned to:
+
+```
+✓ index  qmd backend configured (version: 2.8.3, consented)
+```
+
+If the versions drift, `doctor` tells you the exact install command for the pinned build — and reminds you that dropping back to `local` is a legitimate answer, not a defeat.
+
+### Pointing at a specific binary
+
+```bash
+px0 config set retrieval.qmd_cmd /opt/qmd/bin/qmd
+```
+
+Useful when `qmd` is not the right command — a wrapper script, a pinned path, a version manager shim.
+
+## Switching back
+
+```bash
+px0 config set retrieval.backend local
+px0 knowledge reindex
+```
+
+Nothing is lost. The index is rebuilt from `knowledge/` either way, because the Markdown files are the source of truth and the index is derived.
+
+## Settings
+
+| Key | Default | What it does |
+| :--- | :--- | :--- |
+| `retrieval.backend` | `local` | `local` or `qmd` |
+| `retrieval.qmd_cmd` | `qmd` | Command prefix used to run the qmd CLI |
+| `retrieval.k_default` | `5` | Default number of passages retrieved per query |
+| `knowledge.path` | `~/.px0/knowledge` | The directory being indexed |
+
+## What is never indexed
+
+`knowledge/work/` is excluded from every retrieval on both backends — a hard exclusion, not a ranking penalty. See [The knowledge library](/knowledge/library).

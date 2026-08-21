@@ -18,48 +18,69 @@
         ],
         "groups": [
           {
-            "group": "Getting Started",
+            "group": "Get started",
             "pages": [
-              "get-started/run-locally",
-              "get-started/get-access-key",
-              "get-started/create-prompt",
-              "get-started/run-prompt",
-              "get-started/create-skill",
-              "get-started/create-tool"
+              "get-started/installation",
+              "get-started/quickstart",
+              "get-started/concepts"
             ]
           },
           {
-            "group": "Search",
+            "group": "Workflows",
             "pages": [
-              "search/configure"
+              "workflows/build",
+              "workflows/run",
+              "workflows/anatomy",
+              "workflows/schedule"
             ]
           },
           {
-            "group": "Observability",
+            "group": "Tools and connections",
             "pages": [
-              "observability/setup"
+              "tools/connections",
+              "tools/catalogue"
             ]
           },
           {
-            "group": "SDK",
+            "group": "Knowledge",
             "pages": [
-              "sdk/python",
-              "sdk/typescript",
-              "sdk/go"
+              "knowledge/library",
+              "knowledge/ask",
+              "knowledge/retrieval"
             ]
           },
           {
-            "group": "References",
+            "group": "Guidelines",
             "pages": [
-              "template-syntax"
+              "guidelines/overview",
+              "guidelines/review",
+              "guidelines/provenance"
+            ]
+          },
+          {
+            "group": "Runs",
+            "pages": [
+              "runs/browse"
+            ]
+          },
+          {
+            "group": "Skills",
+            "pages": [
+              "skills/agent-skills"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/cli",
+              "reference/configuration",
+              "reference/store",
+              "reference/privacy",
+              "reference/troubleshooting",
+              "reference/updating"
             ]
           }
         ]
-      },
-      {
-        "tab": "API Reference",
-        "icon": "code",
-        "openapi": "openapi.yaml"
       }
     ]
   },
@@ -69,6 +90,10 @@
   },
   "navbar": {
     "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/px0-ai/px0"
+      },
       {
         "label": "Support",
         "href": "mailto:arpit@arpitbhayani.me"
@@ -83,7 +108,6 @@
   "contextual": {
     "options": [
       "copy",
-      "download-spec",
       "view",
       "chatgpt",
       "claude",
@@ -95,7 +119,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/px0-ai"
+      "github": "https://github.com/px0-ai/px0"
     }
   }
 }

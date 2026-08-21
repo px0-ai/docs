@@ -1,0 +1,134 @@
+---
+title: "Configuration"
+description: "Every setting in config.toml, what it does, and how to read and change it safely."
+---
+
+Configuration lives in one file, `config.toml`, at the root of your store. It is plain TOML you can read and edit — but going through `px0 config` gets you validation, so a typo is caught when you set the key rather than during a run at 5pm on a Friday.
+
+```bash
+px0 config list                              # every key, with value, default, and description
+px0 config get retrieval.backend
+px0 config set retrieval.backend qmd
+```
+
+`set` checks the value against the key's type and allowed values before saving. `px0 config get --help` and `px0 config set --help` print the full key list, so you do not have to come back to this page for a name.
+
+## Interactive helpers
+
+Two settings have their own commands, because getting them wrong is expensive and worth verifying at the point of change.
+
+```bash
+px0 config model
+```
+
+Lists the harnesses px0 knows about with their `PATH` status, takes a model name, and **actually invokes the result before saving** — so a typo'd model name or a missing API key surfaces here rather than mid-workflow. It never asks for or stores a provider key; that stays with the harness CLI's own login.
+
+```bash
+px0 config composio <key>
+px0 config composio           # prompts, masking the existing key
+```
+
+Verifies the key against the live Composio API before storing it, and detects a TLS-intercepting proxy on the way. See [Connections](/tools/connections).
+
+## Model
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `model.harness_cmd` | string | `claude -p` | The coding agent CLI invocation px0 uses as its model backend |
+
+A known harness name (`claude`, `gemini`, `pi`, `opencode`) expands to its full command. Any other literal command works too — a wrapper script, a pinned path — and px0 appends the prompt as the final argument.
+
+## Paths
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `knowledge.path` | string | `~/.px0/knowledge` | Directory the knowledge library lives in |
+| `output.path` | string | `~/.px0/output` | Default directory for workflow file outputs |
+
+`knowledge.path` can point at any folder — an existing notes vault, for instance. Reindex after changing it. `px0 init` writes both keys as absolute paths under the store it just created.
+
+A workflow's `output.path` is always resolved inside `output.path`, and a path that tries to escape it is rejected. See [Workflow files](/workflows/anatomy).
+
+## Connectors
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `connectors.provider` | `composio` \| `native` | `composio` | Intended default for brokering connections. Not yet enforced — every toolkit currently routes through Composio. |
+| `connectors.retries` | int | `3` | Per-run transient retries, with exponential backoff |
+| `connectors.composio_api_key` | string | — | Your Composio API key |
+| `connectors.ca_bundle` | string | — | CA bundle for outbound TLS, set automatically when an intercepting proxy makes the default bundle insufficient |
+
+`ca_bundle` applies to **every** outbound request px0 makes, not just Composio — a knowledge fetch behind a TLS-inspecting proxy uses it too. An explicit `SSL_CERT_FILE` always wins over it, and px0 never silently disables verification.
+
+Retries never apply to "this connector is not configured". That is not a transient failure, so retrying it would only delay the message telling you to authorize the app.
+
+## Retrieval
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `retrieval.backend` | `local` \| `qmd` | `local` | Keyword search, or hybrid semantic search |
+| `retrieval.qmd_cmd` | string | `qmd` | Command prefix used to run the qmd CLI |
+| `retrieval.k_default` | int | `5` | Default passages retrieved per query |
+| `retrieval.rerank` | bool | `true` | Reserved for a future rerank stage; not yet wired |
+
+See [Retrieval backends](/knowledge/retrieval).
+
+## Proposals
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `proposals.max_per_consolidation` | int | `10` | Cap on proposals surfaced per consolidation session |
+
+A cap exists so a long-neglected store hands you a reviewable batch instead of fifty decisions in a row. See [Reviewing proposals](/guidelines/review).
+
+## Versions
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `versions.keep_all` | bool | `true` | Keep every version forever |
+| `versions.max_versions_per_file` | int | `200` | Per-file cap applied by `px0 versions prune` when `keep_all` is `false` |
+
+The default keeps everything, because Markdown files are small and the history is most of the value.
+
+## Logs and retention
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `logs.path` | string | `/var/log/px0` | Run log directory, kept outside the versioned store |
+| `logs.retention_days` | int | `14` | Days to keep logs for successful runs |
+| `logs.retention_days_failed` | int | `60` | Days to keep logs for failed runs |
+| `logs.record_retention_days` | int | `365` | Days to keep run records, which outlive the logs |
+| `logs.max_file_size_mb` | int | `20` | Single log file rotation size cap |
+
+Failed logs are kept four times longer than successful ones, because those are the ones you come back to. Retention is applied by the daemon's nightly pass — without the daemon, nothing is deleted.
+
+## Updates
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `update.channel` | `stable` \| `beta` | `stable` | Release channel |
+| `update.check` | bool | `true` | Whether the daemon checks weekly for an available update |
+| `update.auto_install` | bool | `false` | Install updates automatically instead of only surfacing them |
+
+See [Updating px0](/reference/updating).
+
+## Using config values in a workflow
+
+Any key is readable from a workflow body or an input's `args`:
+
+```
+Write the digest in the voice defined by {{config.model.harness_cmd}}.
+```
+
+More usefully, this lets a workflow reference a path or a tuning value without hardcoding it. See [Workflow files](/workflows/anatomy).
+
+## Editing the file directly
+
+Editing `config.toml` by hand is fine, and px0 versions the file like any other, so your edit shows up in history:
+
+```bash
+px0 versions list config.toml
+px0 versions diff config.toml 3 4
+```
+
+The trade-off is that a hand edit skips validation. If px0 behaves oddly after you change the file directly, `px0 config list` shows what it actually parsed, and `px0 doctor` catches the categories of mistake that matter.

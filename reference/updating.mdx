@@ -1,0 +1,133 @@
+---
+title: "Updating px0"
+description: "Check for a new release, update, roll back, switch channels, and uninstall — without putting your store at risk."
+---
+
+px0 is distributed on PyPI and installed with pipx, so updating is a version check plus a `pipx upgrade`. `px0 update` wraps both, along with the parts that are easy to forget: store-schema migrations, restarting a running daemon, and a health check afterwards.
+
+## Check without changing anything
+
+```bash
+px0 version
+px0 update --check
+```
+
+```
+Update available: 0.1.2 on channel stable.
+```
+
+`--check` touches nothing on disk. It reads the published versions from PyPI and compares them against what you have installed.
+
+The daemon also checks once a week during its nightly pass and records the answer, which is what `px0 doctor` reports. That way neither command hits the network on every invocation, and `doctor` stays usable offline:
+
+```
+✓ update  0.1.0; 0.1.2 available as of 2026-08-20 -- run `px0 update`
+```
+
+Being a release behind is reported, never treated as a failure.
+
+## Update
+
+```bash
+px0 update
+```
+
+In order, it:
+
+<Steps>
+  <Step title="Resolves the newest version on your channel">
+    `stable` by default. See channels below.
+  </Step>
+  <Step title="Upgrades with the mechanism you installed with">
+    It detects pipx or pip and uses that one — `pipx upgrade px0`, or `pip install --upgrade px0`.
+  </Step>
+  <Step title="Applies pending store-schema migrations">
+    Each is recorded as a change in the store's own history. A migration that fails stops the update there, with the store left at the last schema it fully reached. It never half-migrates.
+  </Step>
+  <Step title="Appends the result to update history">
+    In `.state/update-history.json`. Nothing is written unless the install itself succeeded, so a failed update leaves no misleading breadcrumb.
+  </Step>
+  <Step title="Restarts the daemon if it was running">
+    So the new binary is the one doing the scheduling.
+  </Step>
+  <Step title="Runs a quick doctor pass">
+    And prints the summary, so you find out immediately if something needs attention.
+  </Step>
+</Steps>
+
+## Roll back
+
+```bash
+px0 update rollback
+```
+
+This reinstalls the version you were on before the last update — read from `update-history.json`, not guessed — and pops that entry, so repeated rollbacks walk back through your history one step at a time. With no history it says so and exits rather than doing something arbitrary.
+
+One caveat it prints when it applies: **schema migrations are forward-only.** If the update you are undoing migrated the store, the older binary is now looking at a newer store schema. `px0 doctor` is what tells you:
+
+```
+✗ schema  store schema 2, binary schema 1
+```
+
+The fix is to update forward again.
+
+<Warning>
+  Roll back to escape a misbehaving release, not as a way to downgrade the store. A store written by a newer px0 cannot be migrated backwards, so treat the rollback as temporary and update forward once the release you were avoiding is fixed.
+</Warning>
+
+## Channels
+
+```bash
+px0 update --check --channel beta
+px0 config set update.channel beta
+```
+
+| Channel | What it includes |
+| :--- | :--- |
+| `stable` (default) | Final releases only |
+| `beta` | Pre-releases too, installed with `--pre` |
+
+Two related settings:
+
+| Key | Default | What it does |
+| :--- | :--- | :--- |
+| `update.check` | `true` | Whether the daemon checks weekly for an available update |
+| `update.auto_install` | `false` | Install updates automatically instead of only surfacing them |
+
+## Uninstall
+
+```bash
+sh install.sh --uninstall
+```
+
+This removes the binary, tears down the scheduler, and then *tells you* how to delete your store:
+
+```
+Removed the launchd scheduler unit.
+To remove all local configurations and history, run:
+  rm -rf ~/.px0
+```
+
+The scheduler unit goes before the binary does, because a launchd job with `KeepAlive` — or a systemd service — would otherwise keep trying to run a px0 that is no longer installed. launchd plists and systemd user units are removed for you; a cron entry cannot be edited safely on your behalf, so px0 tells you it is still there:
+
+```
+Note: px0 cron entries remain in your crontab; remove them with `crontab -e`.
+```
+
+It never deletes the store itself. `~/.px0` is a plain directory of Markdown and TOML — your guidelines, your library, your run history — so removing it is your call, and it is yours to back up or move somewhere else first:
+
+```bash
+px0 store export ~/px0-backup
+```
+
+See [The store](/reference/store).
+
+## Pinning a version
+
+The installer takes a version, which is the cleanest way to hold a machine at a known release:
+
+```bash
+PX0_VERSION=0.1.2 sh install.sh
+```
+
+`PX0_CHANNEL=beta` installs pre-releases, and `PX0_PREFIX` chooses where the binary lands. See [Installation](/get-started/installation).

@@ -1,0 +1,32 @@
+{
+  "name": "px0-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Documentation site for px0, the local-first CLI that turns a sentence into a workflow you can run, schedule, and edit.",
+  "keywords": [
+    "px0",
+    "documentation"
+  ],
+  "homepage": "https://docs.px0.ai",
+  "bugs": {
+    "url": "https://github.com/px0-ai/docs/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/px0-ai/docs.git"
+  },
+  "license": "MIT",
+  "author": "Arpit Bhayani",
+  "scripts": {
+    "dev": "mintlify dev",
+    "validate": "mintlify validate",
+    "broken-links": "mintlify broken-links",
+    "format": "mintlify format"
+  },
+  "devDependencies": {
+    "mintlify": "^4.2.806"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

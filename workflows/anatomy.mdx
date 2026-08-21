@@ -1,0 +1,214 @@
+---
+title: "Workflow files"
+description: "The complete reference for a workflow file: every frontmatter field, the four kinds of input, how templating and guideline inlining work, and what validation rejects."
+---
+
+A workflow is one Markdown file under `workflows/`, at any depth — px0 loads `*.md` recursively. The YAML frontmatter is the machine contract; the body is the prompt the model receives. That is the whole format — there is no compile step, no lock file, and no hidden state. Edit the file and the next run uses it.
+
+```yaml
+---
+id: friday-pr-digest
+kind: workflow
+version: 1
+description: Every Friday at 5pm, summarize the GitHub PRs I reviewed this week
+request: every friday at 5pm summarize the github pull requests I reviewed this week and post it to #eng-standup
+trigger: {schedule: "0 17 * * 5"}
+guidelines: [summarization.md, pr-comment-style.md]
+inputs:
+  - id: recent_prs
+    tool: composio:GITHUB_LIST_PULL_REQUESTS
+    args: {owner: razorpay, repo: api, state: all}
+  - id: prior_digests
+    retrieve: {query: "weekly PR digest", k: 3}
+    optional: true
+tools: [composio:SLACK_SEND_MESSAGE]
+output: {target: file, path: "digests/pr-{date}.md"}
+timeout: 180s
+---
+Summarize {{recent_prs}} as a short digest, then post it to #eng-standup.
+Avoid repeating anything already covered in {{prior_digests}}.
+```
+
+## Frontmatter fields
+
+| Field | Type | What it does |
+| :--- | :--- | :--- |
+| `id` | string | The workflow's name, and how you run it. Falls back to the filename stem. If two files share an id, the last one loaded wins. |
+| `kind` | string | Always `workflow`. |
+| `version` | int | The file's schema version, managed by px0. |
+| `description` | string | The model's one-line restatement of the job. Shown in listings and pickers. |
+| `request` | string | The sentence you typed, kept verbatim so `px0 workflows edit` can show it back to you. |
+| `trigger` | map | `manual: true` and/or `schedule: "<cron>"`. |
+| `guidelines` | list | Guideline filenames, inlined verbatim into the prompt. |
+| `inputs` | list | Resolved before the prompt runs. See below. |
+| `tools` | list | What the model may call during the run. |
+| `output` | map | `target: stdout`, or `target: file` with a `path`. |
+| `timeout` | duration | Wall-clock cap on the run. Defaults to `120s`; accepts `ms`, `s`, `m`, `h`. |
+| `pipeline` | list | Workflow ids to run in sequence instead of a prompt. See below. |
+
+`description` and `request` are not the same thing, and the distinction matters when you come back to a workflow months later. `request` is your words; `description` is the model's normalization of them.
+
+## Inputs
+
+Inputs run *before* the prompt and their results are interpolated into it. Think of them as the context-gathering phase: by the time the model reads the body, the data is already there.
+
+Each input has an `id` and exactly one of four sources:
+
+<AccordionGroup>
+  <Accordion title="tool — call a read tool">
+    ```yaml
+    inputs:
+      - id: recent_prs
+        tool: composio:GITHUB_LIST_PULL_REQUESTS
+        args: {owner: razorpay, repo: api, state: all}
+    ```
+
+    Only read tools are allowed here. A write tool in `inputs` is a validation error, because inputs run unconditionally — a workflow should not post something just by starting up. Put write tools in `tools` instead, where the model decides whether to call them.
+
+    `args` values are themselves templated, so an input can build on an earlier one.
+  </Accordion>
+
+  <Accordion title="retrieve — query your knowledge library">
+    ```yaml
+    inputs:
+      - id: prior_art
+        retrieve: {query: "connection pooling", k: 8}
+    ```
+
+    Runs a retrieval query over `knowledge/` and interpolates the matching passages, each prefixed with its `path#anchor` so the model can cite them. `k` defaults to `retrieval.k_default` (5).
+
+    Anything under `knowledge/work/` is excluded from this, as it is from every other retrieval px0 performs.
+  </Accordion>
+
+  <Accordion title="source — read piped input">
+    ```yaml
+    inputs:
+      - id: pasted
+        source: stdin
+    ```
+
+    Filled from whatever you piped in with `px0 workflows run <id> --stdin`. `stdin` is the only supported source.
+  </Accordion>
+
+  <Accordion title="workflow — run another workflow first">
+    ```yaml
+    inputs:
+      - id: summary
+        workflow: summarize-week
+    ```
+
+    Runs another workflow and interpolates its output text. The sub-workflow's output is routed to memory rather than to its own destination, so it feeds this prompt instead of being written or printed twice. It produces its own run record.
+  </Accordion>
+</AccordionGroup>
+
+### Optional inputs
+
+```yaml
+inputs:
+  - id: nice_to_have
+    tool: composio:LINEAR_LIST_ISSUES
+    args: {team: platform}
+    optional: true
+```
+
+By default, an input that fails stops the run — if the workflow is *about* those pull requests, producing a digest without them is worse than producing nothing. Mark an input `optional: true` and a failure instead resolves to nothing, the run continues, and the record marks it as degraded so you can see afterwards that something was missing.
+
+## Templating
+
+The body and every `args` value are templated. Reference an input by its id:
+
+```
+Summarize {{recent_prs}} in three bullets.
+```
+
+A placeholder that is the *whole* value keeps its type, so an input holding a list stays a list. A placeholder inside a larger string is stringified in place. `args` are rendered against the context built so far, so a later input can use an earlier one: `args: {query: "{{topic}}"}`.
+
+Dotted lookups work for structured values and for the two built-in namespaces:
+
+| Reference | Resolves to |
+| :--- | :--- |
+| `{{<input-id>}}` | That input's resolved value |
+| `{{input.<key>}}` | A `--input key=value` flag passed on the command line |
+| `{{config.<dotted.key>}}` | A value from `config.toml` |
+| `{{guidelines}}` | The inlined guideline block, if you want to place it explicitly |
+
+## Guideline inlining
+
+Guidelines named in `guidelines:` are read and inlined verbatim at run time. If the body contains `{{guidelines}}`, they go exactly there; otherwise they are prepended before the body.
+
+This is deterministic on purpose. Guidelines are matched by *name*, never retrieved by similarity, because a convention you rely on should not depend on a search hit. The price is that an irrelevant guideline in the list costs tokens and misleads the model, which is why the builder attaches one only when it genuinely matches the task.
+
+The run record notes which guideline files were inlined *and at which version*, so a run whose output looks off can be compared against the conventions in force at the time.
+
+## Output
+
+```yaml
+output: {target: stdout}
+output: {target: file, path: "digests/pr-{date}.md"}
+```
+
+Three rules govern `path`, and the reason for all of them is that the path can come from a model-written plan rather than from you:
+
+- **It is always confined under `output/`.** An absolute path, or a `..` that climbs out, is rejected at run time rather than written. Everything else is resolved relative to the store's output directory.
+- **Only three placeholders are supported:** `{date}`, `{datetime}`, and `{time}`. Both `{date}` and `{{date}}` styles work, since a plan that picked up the body's `{{...}}` habit would otherwise produce a filename with literal braces in it. Any other placeholder is an error, not a filename. The default when `path` is omitted is `output/output-{date}.md`.
+- **Concurrent writes are serialized** with a store-wide lock, so two runs targeting the same path cannot interleave.
+
+<Note>
+  A workflow with `trigger.schedule` must use `target: file`. Nobody is watching stdout when a scheduled run fires, so px0 rejects that combination at validation time instead of dropping the output.
+</Note>
+
+## Pipelines
+
+A workflow can be a sequence of other workflows instead of a prompt:
+
+```yaml
+---
+id: monday-morning
+kind: workflow
+description: Everything I want waiting for me on Monday
+pipeline: [inbox-triage, calendar-brief, sprint-status]
+output: {target: file, path: "monday-{date}.md"}
+---
+```
+
+Each stage runs in order, piping its output into the next: every stage but the last writes to memory rather than to its own destination, and the last stage's output is routed by the pipeline's own `output` block. Each stage still produces its own run record alongside the pipeline's.
+
+A stage that fails aborts the pipeline, and the run is recorded as failed. Pipelines cannot nest — a stage that is itself a pipeline is a validation error, which keeps the execution graph one level deep and legible.
+
+## Validation
+
+Every run validates the file first, and the builder validates the plan before saving it. These are the checks, and each one exists because the alternative is a confusing failure much later:
+
+| Check | Why |
+| :--- | :--- |
+| Every file in `guidelines:` exists | A missing convention silently changes the output |
+| Every tool in `inputs` and `tools` resolves | A typo'd slug should fail before the model runs |
+| No write tool in `inputs` | Inputs run unconditionally; posting should be a decision |
+| `trigger.schedule` parses as cron | An invalid schedule would simply never fire |
+| A scheduled workflow writes to a file | Otherwise its output goes nowhere |
+| `output.target` is `stdout` or `file`, and `file` has a `path` | No ambiguous destination |
+| Pipeline stages exist and are not themselves pipelines | Keeps the graph one level deep |
+| `output.path` stays under `output/` and uses known placeholders | The path can come from a model-written plan |
+
+### A broken file does not break the rest
+
+A workflow whose frontmatter does not parse is **skipped**, not fatal. One YAML typo used to take down every workflow command; now the other workflows keep working, and the broken file is reported by name and line — YAML's own error reports the position as `<unicode string>`, which is no help at all.
+
+```bash
+px0 workflows list     # names the unreadable file
+px0 doctor             # fails the `workflows` check until you fix it
+```
+
+The daemon survives it too: a file that fails to parse no longer stops the scheduler from firing everything else.
+
+## Editing by hand
+
+Editing the file directly is expected and supported. The daemon's nightly pass checkpoints your edits into version history, so they appear alongside px0's own changes:
+
+```bash
+px0 versions list workflows/friday-pr-digest.md
+px0 versions diff workflows/friday-pr-digest.md 2 3
+px0 versions revert workflows/friday-pr-digest.md --to 2
+```
+
+The one thing a hand edit cannot do is notice that your new instruction needs a tool the workflow does not have. When a change is substantive rather than cosmetic, `px0 workflows edit` re-derives the tools, inputs, and guidelines from your revised request and keeps them consistent. See [Build a workflow](/workflows/build).

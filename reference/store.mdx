@@ -1,0 +1,133 @@
+---
+title: "The store"
+description: "What lives in ~/.px0, what is versioned, how to move it, and how px0 keeps history without git."
+---
+
+Everything px0 knows lives in one directory. By default that is `~/.px0`; set `PX0_HOME` to put it anywhere else.
+
+```bash
+export PX0_HOME=~/Documents/px0
+px0 init
+```
+
+The store is designed to be a *bare directory*. It works with nothing else installed alongside it — no git repository, no database server, no daemon required. Copy it to another machine and it keeps working, history included.
+
+## Layout
+
+```
+~/.px0/
+├── workflows/          the jobs px0 can run
+├── guidelines/         how you work
+│   └── work/           inlined at run time, never compiled into skill bundles
+├── knowledge/          what you have read and kept
+│   ├── blogs/
+│   ├── docs/
+│   ├── papers/
+│   └── work/           never retrieved, by design
+├── output/             what runs produced
+├── skills/             compiled guideline bundles
+├── config.toml         every setting
+└── .state/             internal: not meant for hand-editing
+```
+
+| Path | Versioned | Rebuildable |
+| :--- | :--- | :--- |
+| `workflows/` | Yes | No — these are yours |
+| `guidelines/` | Yes | No — these are yours |
+| `config.toml` | Yes | Defaults only |
+| `knowledge/` | No | Yes, from source URLs |
+| `output/` | No | Yes, by rerunning |
+| `skills/` | No | Yes, with `px0 skills build` |
+| `.state/` | n/a | Mostly, but history lives here |
+
+The first three are the ones that would hurt to lose. They are also the smallest — plain Markdown and TOML, easy to back up anywhere.
+
+## Inside `.state/`
+
+You do not need to touch any of this, but knowing what it holds makes `px0 doctor` output legible.
+
+| Path | What it holds |
+| :--- | :--- |
+| `versions/` | Version history: `manifest.sqlite` plus content-addressed blobs under `objects/` |
+| `proposals/` | Pending guideline proposals awaiting your review |
+| `index/` | The retrieval index over `knowledge/` |
+| `ingest/` | Queued ingest jobs, with `failed/` for retired ones |
+| `credentials.toml` | Connector secrets, kept at mode `0600` |
+| `schema` | The store's on-disk schema version |
+| `schedule.json` | The daemon's scheduling state and last-fire records |
+| `lock` | The store-wide lock, held during writes |
+| `update-history.json` | What `px0 update rollback` reads |
+| `update-check.json` | What the weekly update check recorded |
+| `retrieval-consent.json` | Whether you consented to the semantic-search model download |
+
+## How versioning works
+
+px0 keeps its own history rather than relying on git, because a store should not require you to adopt a version-control workflow to keep your notes safe.
+
+Every write to a versioned file records a **change**: an actor (you, or the builder), a timestamp, and the new content of each file involved. A change can span several files — a workflow build that also wrote a guideline is one change, and reverts as one.
+
+Two things follow from that design and are worth knowing:
+
+**Your hand edits are captured, not overwritten.** A run checkpoints the workflow it is about to execute, and the daemon's nightly pass checkpoints everything else. Your editor session shows up in the same history as px0's own changes.
+
+**Guideline history is addressable per section.** A guideline heading becomes a claim id (`<path>#<heading-slug>`), so one convention can be traced and reverted without disturbing the rest of the file. See [Provenance and history](/guidelines/provenance).
+
+```bash
+px0 versions list workflows/friday-pr-digest.md
+px0 changes list --since 7d
+```
+
+## Move a store to another machine
+
+```bash
+px0 store export ~/px0-backup
+```
+
+That copies content and version history — workflows, guidelines, knowledge, output, skills, `config.toml`, plus the version manifest, proposals, schema, and schedule state.
+
+**Secrets are stripped, in both places they live.** `.state/credentials.toml` is excluded, `config.toml` is exported with `connectors.composio_api_key` blanked, and `config.toml`'s version history is dropped from the exported manifest — otherwise the raw key would still sit in the history blobs, one `px0 versions show` away. Blobs are content-addressed and shared, so only those nothing else references are removed.
+
+That is what makes the export safe to move over a network or drop into a backup. On the new machine you set the Composio key once:
+
+```bash
+px0 config composio <your-api-key>
+px0 doctor
+```
+
+One consequence worth knowing: because config history is dropped, an exported store has no `px0 versions list config.toml`. Everything else keeps its full history.
+
+To move the store rather than copy it, move the directory and point `PX0_HOME` at the new location. Nothing inside the store depends on its absolute path.
+
+## Run history is per store
+
+Run records and logs live under `logs.path`, which sits *outside* the store and defaults to one directory shared by every store on the machine. Each record is stamped with the store that produced it, and `px0 runs` only lists the current store's runs — so `PX0_HOME` isolates history rather than showing you another store's runs and offering to rerun workflows this store does not have.
+
+Point `logs.path` somewhere per-store if you would rather they not share a directory at all.
+
+## Sharing and syncing
+
+Because it is a plain directory, syncing a store through Dropbox, iCloud, Syncthing, or a private git repository all work. Two cautions worth taking seriously:
+
+<Warning>
+  `.state/credentials.toml` holds your connector secrets. Exclude it from anything you sync or commit, or make sure the destination is encrypted and private. See [What leaves your machine](/reference/privacy).
+</Warning>
+
+Also avoid running the daemon on two machines against the same synced store. Both would evaluate the same schedules and fire the same workflows, and a synced `schedule.json` is not a coordination mechanism.
+
+## Backing up
+
+The high-value, low-cost backup is the three versioned paths plus history:
+
+```bash
+px0 store export ~/backups/px0-$(date +%F)
+```
+
+`knowledge/` is rebuildable from source URLs and `output/` from reruns, so if you want a small backup, those are the two you can drop.
+
+## Deleting a store
+
+px0 never deletes your store for you, including on uninstall. When you want it gone:
+
+```bash
+rm -rf ~/.px0
+```

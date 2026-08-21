@@ -1,0 +1,94 @@
+---
+title: "Agent skills"
+description: "Install community skills for your coding agent, and compile your own guidelines into bundles your agent loads in ordinary sessions."
+---
+
+Agent skills give your coding agent CLI specialized knowledge, workflows, and tool integrations. `px0 skills` does two related things:
+
+- **Manages community skills** from the open ecosystem, by proxying [`npx skills`](https://github.com/vercel-labs/skills).
+- **Compiles your own guidelines** into agent-facing bundles, with `px0 skills build`.
+
+The second one is the interesting half. It means a convention you wrote for a px0 workflow also shapes the code review you do by hand ten minutes later, in your editor, with no px0 command involved.
+
+## Prerequisites
+
+Managing community skills uses `npx skills` under the hood, so Node.js (which bundles `npx`) is required for that half. `px0 skills build` needs nothing extra.
+
+```bash
+# macOS (Homebrew)
+brew install node
+
+# Ubuntu / Debian
+sudo apt update && sudo apt install -y nodejs npm
+
+# Node Version Manager
+nvm install --lts
+```
+
+```bash
+npx --version     # confirm it is there
+```
+
+## Manage community skills
+
+Any subcommand except `build` is forwarded straight to `npx --yes skills@latest <args> -g`:
+
+```bash
+px0 skills search "linear"      # find community skills
+px0 skills add composio/github  # install one globally
+px0 skills list                 # what is installed, and where it came from
+px0 skills check                # are installed skills valid and configured
+px0 skills update               # update everything to latest
+px0 skills remove <skill-name>  # remove one
+```
+
+px0 keeps your store's `skills.json` in sync with `~/.agents/.skill-lock.json` whenever you run a `px0 skills` command, so the store records what your agent environment actually has.
+
+<Note>
+  `px0 init` does not touch your installed skills. Initializing a store never installs, updates, or reconciles anything in your global agent environment — that would be a surprising side effect of creating a directory.
+</Note>
+
+## Compile your guidelines
+
+```bash
+px0 skills build
+```
+
+```
+built skills/code-review/common.md
+built skills/code-review/go.md
+built skills/code-review/python.md
+built skills/commit-messages.md
+built skills/pr-descriptions.md
+built skills/summarization.md
+```
+
+What it does, step by step:
+
+1. **Extracts frontmatter.** For each Markdown file in `guidelines/`, it inspects the section headings and generates a `SKILL.md` with a `name` and a derived `description`.
+2. **Builds bundles.** Each bundle is written to `~/.px0/skills/<name>/SKILL.md`. Nested guideline paths are flattened with a dash, so `guidelines/code-review/go.md` becomes `skills/code-review-go/SKILL.md`.
+3. **Links them for Claude Code.** If your configured harness is Claude Code (`claude -p`), px0 symlinks `~/.claude/skills/px0-<name>` at the compiled bundles, so Claude Code discovers and loads your guidelines during ordinary interactive sessions.
+4. **Prunes.** Orphaned skill directories and symlinks are cleaned up when their source guideline was deleted or renamed.
+
+A compiled bundle is just a `SKILL.md` whose frontmatter the agent reads to decide when to load it:
+
+```markdown
+---
+name: px0-code-review-go
+description: "Guidelines: Wrap errors with %w; Context is the first parameter"
+---
+```
+
+<Note>
+  If a path in `~/.claude/skills/` is already taken by something that is not px0's symlink, px0 warns and leaves it alone rather than overwriting it. Your hand-written skills are safe.
+</Note>
+
+## What is never compiled
+
+`guidelines/work/` is excluded from every build. Those files still reach the model at run time — they are inlined into px0 prompts like any other guideline — but they are never written into a bundle that a coding agent could carry into a repository.
+
+That is the whole point of the folder: work conventions stay inside px0, on your machine, and do not travel.
+
+## Keeping bundles current
+
+`px0 skills build` is not automatic. Run it after you have meaningfully changed a guideline you want your agent to follow outside px0. If you find yourself forgetting, it is a natural thing to hang off your own shell alias or a `px0 guidelines review` habit.

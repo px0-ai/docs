@@ -1,0 +1,93 @@
+---
+title: "Guidelines"
+description: "Write your conventions down once, and every workflow that needs them speaks in your voice instead of the model's default."
+---
+
+Guidelines are prescriptive prose about how you work: how commit messages are worded, what a Go review checks, how blunt your review comments are, what a summary should sound like.
+
+They exist to solve a specific problem. A model's default voice is not yours, and restating your conventions inside every workflow does not scale — you end up with the same paragraph copy-pasted into six prompts, drifting apart as you edit them one at a time. A guideline is that paragraph, written once, in a file.
+
+```bash
+px0 guidelines list
+$EDITOR ~/.px0/guidelines/commit-messages.md
+```
+
+`px0 init` scaffolds a set of starter guidelines. Read them, rewrite them, or delete them — they are ordinary Markdown files, and they are yours.
+
+## How a workflow uses them
+
+A workflow names the guideline files it needs in its frontmatter:
+
+```yaml
+guidelines: [commit-messages.md, pr-comment-style.md]
+```
+
+At run time those files are read and inlined **verbatim** into the prompt — at an explicit `{{guidelines}}` placeholder if the body has one, otherwise prepended before it.
+
+Two design choices here are worth understanding, because they explain behaviour you will notice:
+
+**Guidelines are matched by name, never by similarity.** Unlike `knowledge/`, which is retrieved, a guideline is either in the list or it is not. A convention you rely on should not depend on a search hit — "sometimes it follows my commit style" is worse than useless.
+
+**Which also means an irrelevant guideline actively hurts.** Since the whole file is inlined, an unrelated guideline costs tokens and misleads the model. This is why the builder attaches a guideline only when it genuinely matches the task: a commit-message workflow gets `commit-messages.md`, a workflow about haikus gets none.
+
+The run record notes which guideline files were inlined *and at which version*. If output that used to be right starts looking wrong, comparing versions is the first thing to check.
+
+## Writing a good guideline
+
+Guidelines work best when they read like instructions to a new colleague who is competent but does not know your team.
+
+- **Be prescriptive, not descriptive.** "Start each bullet with an imperative verb" beats "we tend to use imperative verbs."
+- **Say what not to do, too.** "Never comment on formatting, that is the linter's job" removes a whole category of noise.
+- **Use `##` headings per rule.** Each heading becomes an addressable claim, which is what makes history and reverts work at the level of one convention rather than the whole file.
+- **Keep one topic per file.** Files are inlined whole, so a file covering three topics gets pulled in for all three.
+- **Short is fine.** Three sentences that are actually followed beat two pages that get ignored.
+
+## Guidelines px0 offers to write for you
+
+Partway through a workflow build, px0 may notice that the job depends on a convention it cannot guess — the voice of a public comment, what counts as worth flagging in a review — and offer to write it down:
+
+```
+guideline: PR comment voice and format
+  · The workflow posts comments publicly under your account, so the tone
+    and directness need to match how you normally write review feedback.
+› Write it now? [y/N]
+```
+
+You answer in your own words, a couple of lines is plenty, and px0 shapes it into `##` sections and shows you the draft. What gets saved is an ordinary guideline file with version history from v1, added to that workflow's `guidelines:` list.
+
+Nothing is proposed for a workflow that already says what to do, and nothing on a topic you already have a guideline for. See [Build a workflow](/workflows/build).
+
+## Guidelines change themselves — carefully
+
+px0 never edits a file under `guidelines/` on its own. When a run or a knowledge ingest turns up something that looks like a new rule, or a correction to an existing one, it is filed as a pending proposal for you to accept, edit, or dismiss.
+
+```bash
+px0 guidelines review
+```
+
+This restraint is the whole point. A tool that quietly rewrites your conventions based on its own inference is a tool you stop trusting. See [Reviewing proposals](/guidelines/review).
+
+## `guidelines/work/` stays inside px0
+
+Files under `guidelines/work/` still reach the model at run time — they are inlined like any other guideline — but they are never written into a compiled skill bundle that a coding agent could carry into a repository. See [Agent skills](/skills/agent-skills).
+
+## Guidelines your editor sees too
+
+The same files can be compiled into skill bundles your coding agent loads in ordinary interactive sessions, not just inside px0 runs:
+
+```bash
+px0 skills build
+```
+
+That is how a convention you wrote for a px0 workflow starts shaping the code review you do by hand ten minutes later.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Reviewing proposals" icon="clipboard-check" href="/guidelines/review">
+    Accept, edit, or dismiss what px0 suggests.
+  </Card>
+  <Card title="Provenance and history" icon="clock-rotate-left" href="/guidelines/provenance">
+    Trace any claim or output back to its sources.
+  </Card>
+</CardGroup>

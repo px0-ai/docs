@@ -1,0 +1,142 @@
+---
+title: "Browse runs"
+description: "Every run leaves a record. The interactive browser makes finding one, reading what it did, and rerunning it a single session."
+---
+
+Every run px0 performs — manual, scheduled, or a `px0 knowledge ask` — leaves a record: the inputs it resolved, the guideline versions it inlined, every tool call with its timing, and the outcome.
+
+```bash
+px0 runs
+```
+
+That opens an interactive browser over those records, so finding a run, reading what it did, and rerunning it are one session instead of three commands with ids copy-pasted between them.
+
+## The list view
+
+Newest first, one row per run:
+
+```
+ px0 runs · 3 of 3
+ no filters
+────────────────────────────────────────────────────────────
+› run_20260820-090031-ab12  post-standup  schedule  success  [write]
+  run_20260820-084512-7c31  pr-digest     manual    success
+  run_20260819-160002-04de  post-standup  schedule  failed
+────────────────────────────────────────────────────────────
+↑↓ move  enter detail  / workflow  f outcome  a writes  s since  c clear  q quit
+```
+
+`[write]` marks any run that called a write tool — something that posted, commented, or sent. It is the fastest way to find the run that touched the outside world. A run started with `--dry-run` is labelled as a rehearsal, so a stubbed run is never mistaken for one that really posted.
+
+Run ids are `run_<UTC date>-<UTC time>-<random>`, so they sort chronologically and never collide.
+
+Failed rows are the only ones coloured, so a screen full of runs shows you its problems before you read a word of it. The header counts visible rows against the total, and the line under it names whichever filters are actually in effect — so you are never confused about why a run you expected is missing.
+
+| Key | Action |
+| :--- | :--- |
+| `↑` `↓` or `k` `j` | Move the selection |
+| `Enter` | Open the detail view |
+| `/` | Filter by workflow id |
+| `f` | Cycle outcome: all → success → failed |
+| `a` | Toggle write-activity only |
+| `s` | Filter by age, e.g. `-7d` |
+| `c` | Clear every filter |
+| `q` | Quit |
+
+## The detail view
+
+`Enter` on a row shows the whole record:
+
+```
+ run_20260820-090031-ab12
+workflow: post-standup
+trigger:  schedule
+outcome:  success
+duration: 12.4s
+
+rendered prompt
+  Summarize the following meetings in three bullets...
+
+guidelines inlined (1)
+  summarization.md @ a1b2c3d4
+
+tool calls (2)
+  calendar.list_events 0.83s -> 4 events
+  slack.post_message 1.21s  [write] -> ok
+────────────────────────────────────────────────────────────
+r rerun  l log  o output  w why  esc back
+```
+
+Three things here are worth knowing:
+
+**The rendered prompt** is recovered from the run's raw log — the actual text the model received, with inputs interpolated and guidelines inlined. Raw logs are deleted on the retention schedule (`logs.retention_days`), so for an old run you will see `not available -- log retention removed it` instead. The record itself is kept far longer than the log, which is why the summary survives even when the verbatim prompt does not.
+
+**Guidelines inlined** names each file *with the version* used, not just the filename. If a guideline changed after this run, that difference is visible right here — and it is the single most common explanation for "this used to work".
+
+**Timings** are per tool call, so a slow run tells you which connector was slow rather than leaving you to guess.
+
+| Key | Action |
+| :--- | :--- |
+| `r` | Rerun this workflow; the view follows the new run. A dry run reruns as a dry run |
+| `l` | Page the full raw log through `$PAGER` |
+| `o` | Show the run's output |
+| `w` | Trace provenance — the same thing `px0 runs why` prints |
+| `Esc` or `q` | Back to the list |
+
+## The same data without the TUI
+
+Every view has a plain-text equivalent, which is what you want in a script or a pipe:
+
+```bash
+px0 runs list                              # identical row text to the list view
+px0 runs list --workflow post-standup
+px0 runs list --failed --since 7d
+px0 runs list --json
+
+px0 runs show <run-id>                     # the full JSON record
+px0 runs output <run-id>                   # just the output
+px0 runs logs <run-id> [--follow]          # the raw log
+px0 runs rerun <run-id>
+px0 runs why <run-id>                      # the provenance chain
+```
+
+`px0 runs list` and the TUI's list view render row text from the same formatter, so what you grep is exactly what you saw on screen. `px0 runs` with no terminal to draw on — piped, or in CI — falls back to that plain listing instead of failing.
+
+Only the current store's runs are listed. Records carry the store that produced them, which is what makes `PX0_HOME` isolate history even though `logs.path` defaults to one directory shared by every store on the machine. Records written before that stamp existed are shown rather than hidden.
+
+`--since` takes a relative age: `12h`, `7d`, or `2w`. A leading minus is accepted too, so the `-7d` the TUI suggests works here as well.
+
+## Reading a failed run
+
+Failures are recorded, not discarded — px0 persists the record before reporting the error, so you can always go back and read what happened. Work through it in this order:
+
+<Steps>
+  <Step title="Find it">
+    ```bash
+    px0 runs list --failed --since 7d
+    ```
+  </Step>
+  <Step title="Read the record">
+    ```bash
+    px0 runs show <run-id>
+    ```
+    The failure names the stage that failed and, for an input failure, which input. An unauthorized app includes the consent URL in the reason.
+  </Step>
+  <Step title="Read the prompt it actually sent">
+    Open the run in `px0 runs` and look at the rendered prompt. Guideline text that reads oddly, or an input that resolved to nothing, is usually visible immediately.
+  </Step>
+  <Step title="Fix and confirm">
+    Edit the workflow, then rerun by hand with `--dry-run` before letting the schedule pick it up again.
+  </Step>
+</Steps>
+
+## How long records are kept
+
+| Setting | Default | What it governs |
+| :--- | :--- | :--- |
+| `logs.retention_days` | `14` | Raw logs for successful runs |
+| `logs.retention_days_failed` | `60` | Raw logs for failed runs — kept longer, because they are the ones you come back to |
+| `logs.record_retention_days` | `365` | The run records themselves |
+| `logs.max_file_size_mb` | `20` | Single log file size cap |
+
+Retention is applied by the daemon's nightly pass. Without the daemon running, nothing is deleted.

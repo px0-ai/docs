@@ -1,0 +1,236 @@
+---
+title: "Troubleshooting"
+description: "Every px0 doctor check, what it means, and the concrete fix for each way it can fail."
+---
+
+Start here:
+
+```bash
+px0 doctor
+```
+
+`doctor` exits `0` when everything passes and `4` when any check fails, so it works in a health-check script. Every failing check prints a concrete fix chosen for *how* it failed — the same check can fail for different reasons, and a missing binary and a version-drifted one need different commands.
+
+`--quick` skips the three slower checks (daemon, harness, index) that need a live subprocess or a filesystem walk. `--json` gives you the whole report as data.
+
+## The checks
+
+| Check | What it verifies | Can fail |
+| :--- | :--- | :--- |
+| `credentials` | `.state/credentials.toml` is mode `0600`, or absent | Yes |
+| `versions` | The version manifest opens and is queryable | Yes |
+| `locks` | No run is stuck holding the store lock | Yes |
+| `schema` | The store's schema matches this binary's | Yes |
+| `connections` | Every stored authorization is active | Yes |
+| `workflows` | Every workflow file's frontmatter parses | Yes |
+| `unreferenced_guidelines` | Counts guidelines no workflow lists | No — informational |
+| `update` | Reports what the weekly check found | No — informational |
+| `daemon` | Whether the scheduler is running | No — informational |
+| `harness` | Your model backend actually responds | Yes |
+| `index` | The retrieval index is not empty while knowledge exists | Yes |
+
+Two of those never fail on purpose. A stopped daemon is a choice, not a fault, and being one release behind is not a broken store — reporting them as failures would train you to ignore `doctor` output.
+
+## Fixing each failure
+
+<AccordionGroup>
+  <Accordion title="harness — your model backend did not respond">
+    This is the one to fix first. Every workflow depends on it, and `doctor` invokes your coding agent CLI for real rather than just checking that the binary exists.
+
+    Three different failures hide behind this check, and the fix differs:
+
+    - **Not found.** The binary is not on your `PATH`. Install it, or point `model.harness_cmd` at the right command.
+    - **Timed out.** The backend is slow or hanging. Try invoking it directly to see whether it is px0 or the CLI.
+    - **Exited non-zero.** The backend itself refused, and usually that means authentication.
+
+    | Harness | How to authenticate |
+    | :--- | :--- |
+    | `claude` | Run `claude` once for OAuth login, or set `ANTHROPIC_API_KEY` |
+    | `gemini` | Set `GEMINI_API_KEY`, or run `gemini` once |
+    | `pi` | Set the provider's API key env var, or pass `--api-key` |
+    | `opencode` | Run `opencode auth login`, or set a provider key env var |
+
+    To switch backend or model, with verification before saving:
+
+    ```bash
+    px0 config model
+    ```
+  </Accordion>
+
+  <Accordion title="connections — an authorization is not active">
+    ```
+    ✗ connections  gmail connected_account is INITIATED, not ACTIVE -- finish the browser consent
+    ```
+
+    `INITIATED` means a consent was started and never completed in the browser. Finish it in the tab you already have open, or run the workflow that needs it and px0 will offer a fresh link.
+
+    There is nothing to reset by hand. If an authorization was revoked at the provider or deleted in Composio, the next run that needs it prepares a new one. See [Connections](/tools/connections).
+  </Accordion>
+
+  <Accordion title="workflows — a file will not parse">
+    ```
+    ✗ workflows  1 unreadable workflow file(s)
+    ```
+
+    An unparseable workflow is one that will never run, so this is a real failure rather than a note. The check names the file and the line, which YAML's own error does not — it reports the position as `<unicode string>`.
+
+    Fix the frontmatter, or move the file out of `workflows/` if you are not using it. The rest of your workflows keep working in the meantime: a broken file is skipped, not fatal, and the daemon keeps firing everything else.
+
+    ```bash
+    px0 workflows list     # also names the unreadable file
+    ```
+  </Accordion>
+
+  <Accordion title="index — knowledge exists but nothing is indexed">
+    ```
+    ✗ index  12 knowledge files, 0 indexed passages
+    ```
+
+    Until the index is built, `px0 knowledge ask` and `px0 knowledge search` have nothing to retrieve from:
+
+    ```bash
+    px0 knowledge reindex
+    ```
+
+    On the `qmd` backend this check reports something different — the qmd version and whether you have consented to the model download:
+
+    ```
+    ✓ index  qmd backend configured (version: 2.8.3, consented)
+    ```
+
+    If your installed qmd has drifted from the pinned version, `doctor` prints the exact install command, and reminds you that dropping back to the built-in backend is a legitimate answer:
+
+    ```bash
+    px0 config set retrieval.backend local
+    ```
+  </Accordion>
+
+  <Accordion title="credentials — file permissions are too open">
+    ```
+    ✗ credentials  mode 0o644, expected 0600
+    ```
+
+    ```bash
+    chmod 600 ~/.px0/.state/credentials.toml
+    ```
+
+    An absent credentials file is fine and passes — it just means you have not stored a connector secret yet.
+  </Accordion>
+
+  <Accordion title="locks — the store lock is held">
+    ```
+    ✗ locks  lock is held; a run may be stuck
+    ```
+
+    Wait for the in-flight px0 command to finish and re-run `doctor`. If nothing is running, the process holding it died without releasing it, and deleting the lock file is safe:
+
+    ```bash
+    rm ~/.px0/.state/lock
+    ```
+  </Accordion>
+
+  <Accordion title="schema — store and binary disagree">
+    ```
+    ✗ schema  store schema 2, binary schema 1
+    ```
+
+    Which side is behind decides the fix.
+
+    **Store behind binary** (store 1, binary 2): migrate forward.
+
+    ```bash
+    px0 update
+    ```
+
+    **Store ahead of binary** (store 2, binary 1): this store was written by a newer px0, usually because you rolled back. Upgrade this install to catch up, and avoid writes until you do — schema migrations are forward-only.
+
+    ```bash
+    px0 update
+    ```
+  </Accordion>
+
+  <Accordion title="versions — the manifest will not open">
+    Rare, and it means the version manifest database is corrupt. Move it aside and re-run `px0 init` to rebuild it. Past version content is kept, but the history linking it is lost — so if the store matters, copy the whole `.state/versions/` directory somewhere before you do this.
+  </Accordion>
+
+  <Accordion title="unreferenced_guidelines — informational, not a fault">
+    ```
+    ✓ unreferenced_guidelines  6 unreferenced file(s) -- see `px0 guidelines consolidate`
+    ```
+
+    Every freshly initialized store reports this, because `px0 init` scaffolds guidelines but no workflows. It is a nudge to prune, not a problem:
+
+    ```bash
+    px0 guidelines consolidate
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Other common situations
+
+### "no px0 store at ~/.px0"
+
+You have not initialized one, or `PX0_HOME` points somewhere unexpected:
+
+```bash
+echo $PX0_HOME
+px0 init
+```
+
+### A Composio call is refused with a 403 on `auth_configs`
+
+Your API key is read-only. px0 needs **write** access to `auth_configs` to prepare an app's authorization on your behalf. Grant it on the key in Composio. See [Connections](/tools/connections).
+
+### TLS certificate verification fails on a corporate network
+
+px0 detects a TLS-intercepting proxy when you set the Composio key, finds a system CA bundle that trusts it, and records it as `connectors.ca_bundle`. If none of the bundles it knows about work, point `SSL_CERT_FILE` at your corporate root:
+
+```bash
+export SSL_CERT_FILE=/path/to/corporate-root.pem
+```
+
+px0 will not silently disable verification, so this is the supported path.
+
+### A command needs an answer and stdin is exhausted
+
+```
+✗ this command needs an answer and stdin is exhausted
+```
+
+You piped into an interactive command, or a `yes |` ran out. Either run it interactively, or pass `--yes` to accept the defaults.
+
+### A scheduled workflow never fired
+
+Work through these in order:
+
+1. `px0 daemon status` — is the daemon actually alive, and what does it think the next fire is?
+2. `px0 daemon logs` — did the tick happen? Log timestamps are UTC; cron is evaluated in machine local time.
+3. `px0 runs list --workflow <id> --failed` — did it fire and fail rather than never firing?
+
+A missed fire from a closed laptop is not dropped: px0 compares each schedule against its last recorded fire on the next tick and runs what it owes you, marking it late. See [Schedules and the daemon](/workflows/schedule).
+
+### A workflow's output is not what it used to be
+
+Open the run in `px0 runs` and read two fields: the **rendered prompt** (the exact text the model received) and **guidelines inlined**, which names each file with the version used. A guideline that changed between the two runs is the most common explanation.
+
+```bash
+px0 runs why <run-id>
+px0 versions diff guidelines/summarization.md 4 5
+```
+
+### A run failed on its output path
+
+```
+output.path has unknown placeholder(s): month -- supported: {date}, {datetime}, {time}
+```
+
+Only `{date}`, `{datetime}`, and `{time}` are substituted, in either brace style. A path that resolves outside the store's `output/` directory is rejected the same way. Both checks exist because the path can come from a model-written plan, so fix the `output.path` in the workflow's frontmatter.
+
+### Output looks garbled in a pipe or a log
+
+px0 drops colour and animation automatically when it is not writing to a terminal. If something upstream forces colour, disable it explicitly:
+
+```bash
+px0 --no-color doctor
+NO_COLOR=1 px0 doctor
+```

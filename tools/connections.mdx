@@ -1,0 +1,145 @@
+---
+title: "Connections"
+description: "One Composio API key is the whole setup. After that, apps authorize themselves the first time a workflow needs them."
+---
+
+A workflow reaches outside px0 through a *tool*, and every tool routes through [Composio](https://composio.dev). There is no per-app connect command in px0, and that is a deliberate choice: you set one API key, and after that **apps authorize themselves**. The first time a workflow needs Gmail, px0 prepares Gmail's authorization and hands you the URL to approve.
+
+You never have to know which services exist, and you never connect a service you turn out not to need.
+
+## 1. Set up the API key, once
+
+```bash
+px0 config composio <your-api-key>
+px0 config composio               # prompts, and masks the existing key
+```
+
+`px0 init` asks for the same key, so on a fresh store this is already done.
+
+Get the key from the Composio platform under **Get Started → Settings → API Keys**. px0 verifies it against the live API before storing it, so a typo'd or revoked key fails here rather than three screens into a workflow build.
+
+### The permission the key needs
+
+The key needs **write** access to `auth_configs`. That is the permission that lets px0 prepare an app's authorization on your behalf. A read-only key gets as far as the first tool call and then reports Composio's own refusal:
+
+```
+slack is not connected yet, and preparing its authorization failed:
+Error code: 403 - This API key does not have the permissions required for
+POST /api/v3/auth_configs. This route requires "auth_configs" write access,
+but the key has read access.
+```
+
+That is a permission to grant on the key in Composio, not something px0 can work around. Note what px0 does *not* do there: it explains why it could not prepare a link, rather than printing a dead URL and letting you discover the problem in the browser.
+
+### Where the key is stored
+
+In `config.toml` under `connectors.composio_api_key`, and in `.state/credentials.toml`, which px0 keeps at mode `0600` and `px0 doctor` checks on every run.
+
+### Behind a TLS-intercepting proxy
+
+If your network runs a TLS-inspecting proxy — Zscaler, Netskope, and friends — setting the key detects it, because the certificate chain will not validate against the public CA bundle Python ships with. px0 looks for a system CA bundle that *does* trust the interceptor, retries with it, and records it as `connectors.ca_bundle` so later runs reuse it:
+
+```
+· TLS is intercepted on this network  verifying against /opt/homebrew/etc/ca-certificates/cert.pem
+✓ Composio API key stored
+```
+
+If none of the bundles it knows about work, it tells you to point `SSL_CERT_FILE` at your corporate root and stops. It never silently disables verification — a tool that quietly turns off certificate checking on a corporate network is doing you harm, not a favour. An explicit `SSL_CERT_FILE` always wins over the stored bundle.
+
+Once stored, that bundle is used for **every** outbound request px0 makes, not only Composio ones. A `px0 knowledge add` against an internal wiki behind the same proxy works without further configuration, and if you ever need to set it by hand:
+
+```bash
+px0 config set connectors.ca_bundle /path/to/ca-bundle.pem
+```
+
+## 2. Apps authorize themselves
+
+Write a workflow that needs Slack, run it, and px0 does the rest:
+
+```bash
+px0 workflows run post-standup
+```
+
+```
+✗ slack is not connected yet. Authorize it by opening:
+    https://backend.composio.dev/s/...
+```
+
+Open the URL, approve the consent screen, and run it again. That is the whole flow.
+
+Usually you never reach that message, because `px0 workflows new` asks first: once it knows which tools the workflow needs, it checks what is authorized and offers to prepare the rest, so a workflow is authorized before it ever runs. See [Build a workflow](/workflows/build).
+
+Two properties are worth knowing:
+
+- **Preparing a link is idempotent.** The underlying auth config is created once and cached, so a second attempt reuses it instead of piling up duplicate configurations in your Composio account.
+- **Minting a URL grants nothing.** Access happens only when a human consents in the browser. px0 preparing a link gives it no access by itself.
+- **App credentials never touch your disk.** px0 holds a Composio API key and connected-account ids, not your Slack or Gmail tokens. See [What leaves your machine](/reference/privacy).
+
+If an authorization later breaks — revoked in the provider, deleted in Composio — the next run that needs it offers a fresh link. There is nothing to remove or reset by hand.
+
+## 3. What is ready, and what is not
+
+```bash
+px0 tools list --status
+```
+
+```
+  read   calendar.list_events          List calendar events in a window          not authorized
+  write  github.create_review_comment  Post a review comment on a PR             not authorized
+  read   gmail.get_message             Fetch one gmail message                   ready
+  read   gmail.search_messages         Search gmail messages                     ready
+  write  gmail.send_message            Send a gmail message                      ready
+  write  slack.post_message            Post a message to a slack channel         consent pending
+
+3 of 10 tools can change things outside px0
+
+not authorized yet: calendar, github, slack -- a workflow that needs one
+prints its authorization URL on the first run
+```
+
+| Status | Meaning | What to do |
+| :--- | :--- | :--- |
+| `ready` | Authorized and usable | Nothing |
+| `not authorized` | Never approved | Nothing — the next run that needs it offers a link |
+| `consent pending` | A link was opened but the browser consent was not finished | Finish the consent in the tab you already have open |
+| `authorization failed` | Composio rejected it | Re-run the workflow for a fresh link |
+| `authorization gone` | px0 holds an id Composio no longer knows about | Re-run the workflow for a fresh link |
+
+`--status` costs one API call per provider, which is why it is opt-in rather than the default. See [Tools](/tools/catalogue) for the rest of what that listing shows.
+
+## 4. When an authorization lapses
+
+`px0 doctor` fails (exit `4`) on any stored authorization that is not active, so a health check catches a connection that quietly expired instead of letting a scheduled workflow discover it at 5pm on Friday:
+
+```
+✗ connections  gmail connected_account is INITIATED, not ACTIVE -- finish the browser consent
+```
+
+`INITIATED` means a consent was started and never completed. px0 says so explicitly rather than minting a second link you would also leave open:
+
+```
+slack authorization was started but never completed -- open the URL px0
+printed for it and finish the browser consent
+```
+
+## 5. When something fails mid-run
+
+A tool call whose app is not ready fails cleanly rather than crashing. The run is recorded as `failed`, and the reason carries the URL you need:
+
+```
+slack is not connected yet. Authorize it by opening:
+  https://backend.composio.dev/s/...
+```
+
+Transient failures — network blips, Composio 5xx responses — are retried with exponential backoff per `connectors.retries` (default `3`) before the run gives up, so a momentary outage does not fail a scheduled workflow.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Tools" icon="screwdriver-wrench" href="/tools/catalogue">
+    Curated versus discovered tools, and read/write access.
+  </Card>
+  <Card title="Build a workflow" icon="wand-magic-sparkles" href="/workflows/build">
+    The builder authorizes what a plan needs, up front.
+  </Card>
+</CardGroup>

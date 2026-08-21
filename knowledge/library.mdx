@@ -1,0 +1,151 @@
+---
+title: "The knowledge library"
+description: "Build a searchable library of what you read — posts, papers, docs, transcripts — as plain Markdown you own."
+---
+
+`knowledge/` is the library of what you have read and kept: papers, blog posts, internal docs, video transcripts. It is the fastest part of px0 to get value from, because it needs no connections and no workflows — just a store.
+
+Unlike `workflows/` and `guidelines/`, it is not versioned. That is intentional: this is bulk reference material, and anything in it is rebuildable from its source URL. Version history for a blog post you saved would be noise.
+
+## Add something
+
+```bash
+px0 knowledge add https://blog.example.com/how-shopify-scaled-database   # web page   -> knowledge/blogs/
+px0 knowledge add ~/papers/raft.pdf                                      # pdf        -> knowledge/papers/
+px0 knowledge add ~/notes/payments-architecture.docx                     # document   -> knowledge/docs/
+px0 knowledge add ~/notes/idempotency.md                                 # markdown   -> knowledge/docs/
+px0 knowledge add https://youtube.com/watch?v=...                        # transcript -> knowledge/docs/
+```
+
+Extraction runs locally, and the destination folder is picked from the source type. Override it with `--to docs|blogs|papers` when you want something filed somewhere specific.
+
+| Source | Handled as |
+| :--- | :--- |
+| Any `http`/`https` URL | Page text extracted locally |
+| YouTube video or playlist | Transcript, or a metadata-only stub |
+| `.pdf`, `.docx`, `.odt` | Extracted to Markdown |
+| `.md`, `.markdown`, `.txt`, `.text`, `.rst`, `.org` | Filed as-is, titled from its first heading |
+
+Plain text and Markdown need no extraction step, which matters if you point `knowledge.path` at an existing notes vault — those files are the obvious thing to ingest, not an edge case.
+
+What lands on disk is a Markdown file with the extracted text and a little metadata about where it came from. You can open it, fix a mangled table, or delete it — it is your file. Local files are named from their own filename rather than their full path, so two files with the same name in different deep directories do not collide.
+
+### YouTube links without a transcript
+
+A YouTube link with no published transcript is not rejected. px0 writes a stub holding the URL and whatever metadata it can find — title, channel, description — marked as metadata-only. It is indexed and searchable even without a body, so you can still find that you saved it.
+
+Once a transcript appears, upgrade it in place:
+
+```bash
+px0 knowledge refresh knowledge/docs/some-talk.md
+```
+
+`refresh` works on anything you have ingested, not just video: it re-fetches the source — web page, local file, or PDF — and rewrites the file. Paths resolve relative to the knowledge library or the store, so either form works.
+
+### Playlists are queued, not ingested inline
+
+A YouTube *playlist* URL would be a long, failure-prone operation to run in the foreground, so px0 queues it under `.state/ingest/` and lets the daemon's nightly pass drain it — one knowledge file per video that has a transcript.
+
+Videos already ingested are skipped on later passes, and a job that keeps failing is retired to `.state/ingest/failed/` rather than retried forever. A playlist therefore needs the daemon running to actually land:
+
+```bash
+px0 daemon install
+```
+
+See [Schedules and the daemon](/workflows/schedule).
+
+### Guideline proposals from what you read
+
+Ingesting a source also runs a proposal pass over the text by default. px0 looks for claims that might belong in your guidelines — a convention stated well, a rule you have been meaning to write down — and files them for review rather than acting on them.
+
+Skip that pass with `--no-propose` when you just want the material filed:
+
+```bash
+px0 knowledge add https://example.com/post --no-propose
+```
+
+Nothing is ever written to `guidelines/` without your say-so. See [Reviewing proposals](/guidelines/review).
+
+### When a source will not fetch
+
+Ingest failures are reported, never raised as a traceback, and each names what actually went wrong:
+
+```
+https://example.com/post returned HTTP 404
+https://example.com/post timed out after 20s
+TLS verification failed for https://example.com/post. If your network intercepts TLS,
+set the CA bundle with `px0 config set connectors.ca_bundle /path/to/ca-bundle.pem`.
+```
+
+An unrecognized source says what it accepts rather than guessing:
+
+```
+unrecognized source: ~/notes/thing -- give a URL, or a file ending in .md, .txt, .pdf, .docx, or .odt
+```
+
+## See what is in the library
+
+```bash
+px0 knowledge list
+```
+
+Or, for the whole store at once — workflows, guidelines, and knowledge in one pass:
+
+```bash
+px0 store list
+```
+
+## Where it lives
+
+By default `~/.px0/knowledge`, with three folders that come from the ingest types:
+
+| Folder | What lands there |
+| :--- | :--- |
+| `knowledge/blogs/` | Web pages and posts |
+| `knowledge/papers/` | PDFs |
+| `knowledge/docs/` | Documents and transcripts |
+| `knowledge/work/` | Anything you want kept out of retrieval entirely |
+
+You are not limited to those. Create folders that suit how you think, and px0 will index them.
+
+If you already keep notes somewhere else, point px0 at that directory instead of copying files into the store:
+
+```bash
+px0 config set knowledge.path ~/vaults/notes
+px0 knowledge reindex
+```
+
+## `knowledge/work/` never leaves the machine
+
+Anything filed under `knowledge/work/` is excluded from every retrieval px0 performs — `px0 knowledge search`, `px0 knowledge ask`, and workflow `retrieve:` inputs alike, on both retrieval backends.
+
+<Warning>
+  This is a hard exclusion, not a ranking penalty. Files under `knowledge/work/` are never retrieved and therefore never inlined into a prompt that goes to your model backend. It is the right place for material you are willing to keep locally but not willing to send anywhere. See [What leaves your machine](/reference/privacy).
+</Warning>
+
+The same idea applies on the guidelines side: `guidelines/work/` is excluded from compiled skill bundles, so work conventions never get carried into a repository by your coding agent. See [Agent skills](/skills/agent-skills).
+
+## Keep the index fresh
+
+Every `px0 knowledge add` indexes what it just filed, and the daemon's nightly pass reindexes the whole library. You only need to do it by hand after bulk changes — dropping in a folder of files, editing many at once, or switching backends:
+
+```bash
+px0 knowledge reindex
+```
+
+`px0 doctor` tells you when the index and the library have drifted apart:
+
+```
+✗ index  12 knowledge files, 0 indexed passages
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Search and ask" icon="magnifying-glass" href="/knowledge/ask">
+    Query the library and get answers with citations.
+  </Card>
+  <Card title="Retrieval backends" icon="database" href="/knowledge/retrieval">
+    Keyword search by default, semantic search when you want it.
+  </Card>
+</CardGroup>

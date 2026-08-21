@@ -1,0 +1,69 @@
+---
+title: "Search and ask"
+description: "Query your library directly for passages, or ask a question and get an answer built from them, with citations."
+---
+
+There are two ways to get at what you have saved, and they answer different questions.
+
+- **`px0 knowledge search`** returns passages. Use it when you want to find the source.
+- **`px0 knowledge ask`** returns an answer built from those passages. Use it when you want the point.
+
+## Search for passages
+
+```bash
+px0 knowledge search "connection pooling"
+px0 knowledge search "connection pooling" --k 8
+px0 knowledge search "connection pooling" --json
+```
+
+Each result line is a `path#anchor` and a relevance score, followed by a snippet. The anchor is a heading slug, so the reference points at a section rather than a whole file — which is what makes citations useful and what lets provenance track a specific claim.
+
+`--k` sets how many passages come back, defaulting to `retrieval.k_default` (5).
+
+## Ask a question
+
+```bash
+px0 knowledge ask "what did that Shopify post say about connection pooling?"
+px0 knowledge ask "how does our payments architecture handle idempotency?" --k 8 --sources
+```
+
+`ask` retrieves the relevant passages and generates an answer from them. Add `--sources` to print the `path#anchor` list alongside the answer, which is how you check that the answer came from where you expected:
+
+```
+sources
+  · knowledge/blogs/how-shopify-scaled-database.md#connection-pooling
+  · knowledge/docs/payments-architecture.md#idempotency-keys
+```
+
+`ask` is deliberately narrow. It touches no connectors and no guidelines — it is retrieval plus generation over your library and nothing else. If you want a question answered *and* posted somewhere, that is a workflow.
+
+## Asks are recorded like runs
+
+Every `ask` produces a run record, exactly like a workflow run. It appears in `px0 runs list`, and `px0 runs why <run-id>` can explain precisely which passages fed the answer:
+
+```bash
+px0 runs list
+px0 runs why ask_20260820-091455-9f2a
+```
+
+This matters more than it first looks. An answer assembled from your own library is only trustworthy if you can check what it was assembled from, months later, without re-running anything.
+
+## Retrieval inside a workflow
+
+A workflow can pull from the library the same way, with a `retrieve:` input:
+
+```yaml
+inputs:
+  - id: prior_art
+    retrieve: {query: "connection pooling", k: 8}
+```
+
+The passages are interpolated into the prompt, each prefixed with its `path#anchor` so the model can cite them. See [Workflow files](/workflows/anatomy).
+
+## When results are not what you expected
+
+**Nothing comes back at all.** The index may be empty or stale. `px0 doctor` reports this directly, and `px0 knowledge reindex` fixes it.
+
+**The right document exists but does not match.** The default backend is keyword-based, so a search for "connection pooling" will not surface a passage that says "reusing database connections" — same idea, no shared words. That gap is exactly what the semantic backend is for. See [Retrieval backends](/knowledge/retrieval).
+
+**A file you know you saved never appears.** Check whether it is under `knowledge/work/`, which is excluded from every retrieval px0 performs by design.

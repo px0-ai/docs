@@ -1,0 +1,131 @@
+---
+title: "Core concepts"
+description: "The six ideas px0 is built from — the store, workflows, tools, guidelines, knowledge, and runs — and how they relate to each other."
+---
+
+px0 has a small vocabulary, and everything in the CLI is named after it. Commands read as entity then verb: `px0 workflows new`, `px0 knowledge search`, `px0 guidelines review`. Once you know the six nouns, you can guess most of the commands.
+
+## The store
+
+Everything px0 knows lives in one directory, `~/.px0` by default. Set `PX0_HOME` to put it somewhere else — a synced folder, an encrypted volume, a second machine.
+
+| Path | What it holds | Versioned |
+| :--- | :--- | :--- |
+| `workflows/` | The jobs px0 can run, one Markdown file each | Yes |
+| `guidelines/` | Your conventions, inlined into prompts verbatim | Yes |
+| `knowledge/` | What you have read and kept, in `docs/`, `blogs/`, `papers/` | No |
+| `output/` | What runs produced when a workflow writes to a file | No |
+| `skills/` | Guideline bundles compiled for your coding agent | Derived |
+| `config.toml` | Every setting | Yes |
+| `.state/` | Indexes, version history, proposals, credentials, daemon state | Internal |
+
+The first four are ordinary Markdown you can open, edit, move, and grep. There is no database you have to go through and no compile step — edit a workflow by hand and the next run picks it up.
+
+<Note>
+  `.state/` is the one folder not meant for hand-editing. It holds the retrieval index, the version manifest, pending proposals, `credentials.toml` (kept at mode `0600`), and the daemon's schedule state. Everything in it is either derived from your files or rebuildable.
+</Note>
+
+px0 keeps its own history rather than relying on git, so a store works as a bare directory with nothing else installed alongside it. See [The store](/reference/store).
+
+## Workflows
+
+A workflow is one recurring job, stored as a Markdown file: YAML frontmatter as the machine contract, the body as the prompt the model receives.
+
+```yaml
+---
+id: friday-pr-digest
+kind: workflow
+description: Every Friday at 5pm, summarize the GitHub PRs I reviewed this week
+trigger: {schedule: "0 17 * * 5"}
+guidelines: [summarization.md]
+inputs:
+  - id: recent_prs
+    tool: composio:GITHUB_LIST_PULL_REQUESTS
+    args: {owner: razorpay, repo: api, state: all}
+tools: [composio:SLACK_SEND_MESSAGE]
+output: {target: file, path: digests/pr-{date}.md}
+timeout: 120s
+---
+Summarize {{recent_prs}} as a short digest, then post it to #eng-standup.
+```
+
+You do not write that file by hand the first time. `px0 workflows new` takes a sentence and generates it, then you edit whatever you like. The full field reference is in [Workflow files](/workflows/anatomy).
+
+Two details are worth internalizing early, because they explain most of px0's behaviour:
+
+- **Inputs run before the prompt.** Everything in `inputs` is resolved first and interpolated into the body, so the model starts with the context already gathered. Inputs must be read-only, since they run unconditionally.
+- **Tools are called during the run.** Everything in `tools` is what the model may call while working — which is where posting, sending, and commenting happen.
+
+## Tools and connections
+
+A tool is how a workflow reaches outside px0. Every tool routes through [Composio](https://composio.dev), and there are two kinds:
+
+- **Curated** (`slack.post_message`, `github.get_pr`) — ten hand-written tools with stable argument names.
+- **Discovered** (`composio:SLACK_SEND_MESSAGE`) — anything `px0 workflows new` found by searching Composio's catalogue, which is thousands of tools across hundreds of toolkits.
+
+They execute identically. The `composio:` prefix only tells you where the tool came from.
+
+Every tool declares its access, taken from Composio's own metadata rather than guessed from its name:
+
+| Marker | Meaning |
+| :--- | :--- |
+| `read` | Only reads. Safe as a workflow input. |
+| `write` | Can post, send, or change something outside px0. |
+| `destructive` | Can delete or overwrite. Flagged separately and treated more carefully. |
+
+px0 surfaces write tools everywhere it can: the builder calls them out before generating a workflow, `--dry-run` stubs them instead of executing them, and `px0 runs` marks any run that used one. See [Tools](/tools/catalogue).
+
+There is no connect command. You set one API key, and after that apps authorize themselves — the first time a workflow needs Gmail, px0 prepares Gmail's authorization and hands you the URL to approve. See [Connections](/tools/connections).
+
+## Guidelines
+
+Guidelines are prescriptive prose about how you work: how commit messages are written, what a Go review checks, how a summary should sound. They exist because a model's default voice is not yours, and telling it again in every workflow does not scale.
+
+A workflow names the guideline files it needs, and those files are inlined verbatim into the prompt at run time. This is deliberate and deterministic — guidelines are never retrieved by similarity the way knowledge is, because a convention you rely on should not depend on a search hit.
+
+px0 never edits a file under `guidelines/` on its own. When a run or an ingest turns up something that looks like a new rule, it is filed as a proposal for you to accept, edit, or dismiss. See [Guidelines](/guidelines/overview).
+
+## Knowledge
+
+`knowledge/` is the library of what you have read and kept: papers, blog posts, internal docs, video transcripts. Unlike workflows and guidelines it is not versioned, because it is bulk reference material and rebuildable from its source URL.
+
+Two things use it. `px0 knowledge ask` answers questions across the whole library, and a workflow can declare a `retrieve:` input to pull relevant passages into its prompt. See [The knowledge library](/knowledge/library).
+
+<Note>
+  Anything filed under `knowledge/work/` is excluded from every retrieval px0 performs — search, ask, and workflow inputs alike. That is a hard exclusion, not a ranking penalty, so work material never leaks into a prompt that leaves your machine.
+</Note>
+
+## Runs
+
+Every execution leaves a record: the inputs it resolved, the guideline versions it inlined, every tool call with its timing, and the outcome. Manual runs, scheduled fires, and `px0 knowledge ask` all produce one.
+
+That record is what makes px0 auditable. `px0 runs why <run-id>` walks the full chain behind an output — which guideline versions were inlined, which passages were retrieved, which tools were called — and it works offline, on a bare store, with nothing else installed. See [Browse runs](/runs/browse).
+
+Records are stamped with the store that produced them. Since `logs.path` defaults to one directory shared by every store on the machine, that stamp is what makes `PX0_HOME` genuinely isolate history rather than showing you another store's runs.
+
+<Note>
+  A scheduled workflow writes to a file, never to stdout — nothing is watching a terminal when it fires. That is why the example above uses `output: {target: file, ...}`; px0 rejects the stdout combination at validation time.
+</Note>
+
+## The model backend
+
+px0 has no model of its own and no direct-API backend. It shells out to a coding agent CLI in non-interactive mode — `claude -p` by default — and reuses that CLI's login, model choice, and rate limits.
+
+This is a deliberate trade. You do not hand px0 a provider key, you do not manage a second billing relationship, and px0 stays useful with whichever agent CLI you already sign into. The cost is that a workflow can only be as capable as the harness behind it, and a broken harness login breaks every workflow — which is why `px0 doctor` invokes it for real rather than just checking that the binary exists.
+
+It also means prompts leave your machine through that CLI. [What leaves your machine](/reference/privacy) is the full accounting of where data goes.
+
+## The daemon
+
+A workflow with a schedule does not fire on its own; something has to watch the clock. `px0d` is that something, and it is deliberately dumb: it polls `workflows/`, evaluates cron expressions in machine local time, spawns anything due, and runs one housekeeping pass a day (checkpointing hand edits, reindexing knowledge, draining queued ingests, applying log retention, checking weekly for updates).
+
+Nothing about the daemon is required. Without it, `trigger.schedule` is documentation and every run is one you started. See [Schedules and the daemon](/workflows/schedule).
+
+## History and provenance
+
+Workflows, guidelines, and config are versioned by px0 itself, at two granularities:
+
+- **File level.** `px0 versions list|show|diff|revert` for any versioned file, and `px0 changes list|show|revert` for the store-wide log of every change, newest first.
+- **Claim level.** A guideline section is addressed as `<path>#<heading-slug>`, so `px0 guidelines log` and `px0 guidelines revert` can walk and restore one convention without touching the rest of the file.
+
+Hand edits are not invisible to this. The daemon's nightly pass checkpoints anything you changed in an editor, so your own edits show up in the same history as px0's. See [Provenance and history](/guidelines/provenance).

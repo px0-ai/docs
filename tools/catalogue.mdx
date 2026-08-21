@@ -1,0 +1,121 @@
+---
+title: "Tools"
+description: "The two kinds of tool a workflow can call, how read and write access is decided, and how to inspect what is available."
+---
+
+A tool is how a workflow reaches outside px0 — a GitHub read, a Slack post, a row appended to a sheet. There are two kinds, and they execute identically.
+
+| Kind | Looks like | Where it comes from |
+| :--- | :--- | :--- |
+| **Curated** | `slack.post_message`, `github.get_pr` | Ten hand-written tools with stable argument names |
+| **Discovered** | `composio:SLACK_SEND_MESSAGE` | Found by `px0 workflows new` searching Composio's catalogue |
+
+The `composio:` prefix only tells you where the tool came from. Both kinds go through the same execution path, which means authorization-on-demand, retries, and dry-run stubbing behave the same whichever you use.
+
+## Curated tools
+
+Four toolkits have hand-written tools with argument names px0 controls:
+
+| Tool | Access | What it does |
+| :--- | :--- | :--- |
+| `github.list_my_prs` | read | Pull requests authored by the connected user |
+| `github.get_pr` | read | Fetch one pull request by URL |
+| `github.get_pr_diff` | read | Fetch the unified diff of a pull request |
+| `github.list_review_comments` | read | List existing review comments on a PR |
+| `github.create_review_comment` | write | Post a review comment on a PR |
+| `calendar.list_events` | read | List calendar events in a window |
+| `gmail.search_messages` | read | Search Gmail messages |
+| `gmail.get_message` | read | Fetch one Gmail message |
+| `gmail.send_message` | write | Send a Gmail message |
+| `slack.post_message` | write | Post a message to a Slack channel |
+
+These exist because a handful of actions come up in almost every workflow, and a stable argument name (`url`, `channel`, `text`) is easier to hand-write than Composio's generated schema. They are a convenience, not a limit.
+
+## Discovered tools
+
+Anything in Composio's catalogue — thousands of tools across hundreds of toolkits — is reachable. You do not look them up yourself: `px0 workflows new` writes *searches* (a toolkit plus a capability phrase), Composio returns candidates, and the model picks from what actually came back. Nothing is invented, because a slug that does not appear in the results is discarded.
+
+Once a workflow uses a discovered tool, it is recorded in your store. That has two useful consequences: the tool shows up in `px0 tools list` alongside the curated ones, and the workflow keeps resolving it without another catalogue lookup — so a workflow written today still runs offline tomorrow.
+
+## Read, write, and destructive
+
+Every tool declares its access, and px0 takes that from Composio's own metadata rather than guessing from the name:
+
+| Marker | Meaning |
+| :--- | :--- |
+| `read` | Only reads. Safe as a workflow input. |
+| `write` | Can post, send, or change something outside px0. |
+| `destructive` | Can delete or overwrite. Flagged separately and harder to get. |
+
+This one distinction shapes a lot of px0's behaviour, because it is the difference between a workflow that wastes your time and a workflow that embarrasses you in a public channel:
+
+- **The builder** calls out write tools before generating a workflow, and lets you drop any you did not ask for.
+- **Validation** rejects a write tool in `inputs`, since inputs run unconditionally.
+- **`--dry-run`** stubs write tools instead of executing them, so you see what would have been posted.
+- **`px0 runs`** marks any run that called one with `[write]`.
+
+The tool-selection pass is instructed to prefer the fewest tools, prefer reads over writes, include a write only when your request explicitly asks to change something, and never include a destructive tool unless you asked to delete something.
+
+## Inspect what is available
+
+```bash
+px0 tools list              # every tool a workflow can call
+px0 tools list gmail        # one toolkit
+px0 tools list --status     # also ask Composio what is authorized
+```
+
+```
+  read   calendar.list_events          List calendar events in a window          not authorized
+  write  github.create_review_comment  Post a review comment on a PR             not authorized
+  read   gmail.get_message             Fetch one gmail message                   ready
+  write  slack.post_message            Post a message to a slack channel         consent pending
+
+3 of 10 tools can change things outside px0
+```
+
+The `read` / `write` marker is the only thing on that screen px0 bothers to colour, because it is the only thing that can surprise you.
+
+`--status` costs one API call per toolkit, which is why it is opt-in rather than always on. The statuses themselves are explained in [Connections](/tools/connections).
+
+### Parameter schemas
+
+When you are writing a workflow's `args` by hand, you want the actual schema:
+
+```bash
+px0 --json tools list
+px0 --json tools list gmail
+```
+
+That returns each tool with its parameters. Required parameters are marked with a trailing `*` and listed first, so the shape of a call is obvious at a glance.
+
+## Use a tool in a workflow
+
+Nothing special is required — name it in the frontmatter and the runner takes care of both authorization and, if needed, asking you to authorize:
+
+```yaml
+---
+id: post-standup
+kind: workflow
+description: post yesterday's calendar summary to #standup
+inputs:
+  - id: meetings
+    tool: calendar.list_events
+    args: {window: yesterday}
+tools: [slack.post_message]
+output: {target: stdout}
+---
+Summarize {{meetings}} in three bullets, then post it to #standup.
+```
+
+Inputs run before the prompt and their results are interpolated into it. Tools in the `tools:` list are callable by the model during the run. Full field reference: [Workflow files](/workflows/anatomy).
+
+## When a tool call fails
+
+| Failure | What px0 does |
+| :--- | :--- |
+| App not authorized | Fails the run cleanly, with the consent URL in the reason |
+| Consent started but abandoned | Says so, rather than minting a second link |
+| Network blip or Composio 5xx | Retries with backoff, up to `connectors.retries` (default `3`) |
+| Unknown tool slug | Fails validation before the model runs |
+
+Every tool call is recorded with its own timing in the run record, so a slow run tells you exactly which connector was slow. See [Browse runs](/runs/browse).

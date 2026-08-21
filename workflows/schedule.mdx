@@ -1,0 +1,118 @@
+---
+title: "Schedules and the daemon"
+description: "Give a workflow a cron schedule, install the scheduler for your OS, and understand the nightly housekeeping pass and missed-fire recovery."
+---
+
+A workflow with a `trigger.schedule` does not fire on its own — something has to be watching the clock. That something is `px0d`, a deliberately dumb scheduler: it polls `workflows/`, evaluates cron expressions in machine local time, spawns `px0 workflows run <id> --quiet` for anything due, and runs one housekeeping pass a day.
+
+Dumb is the goal here. There is no queue to inspect, no job state to reconcile, and nothing to recover from a corrupt scheduler database — the workflow files *are* the schedule.
+
+## 1. Give a workflow a schedule
+
+```yaml
+trigger: {schedule: "0 16 * * 5"}      # Fridays at 16:00 local time
+```
+
+Standard five-field cron. If you described the timing in your original sentence — "every friday at 5pm" — the builder already wrote this for you.
+
+Invalid expressions are rejected when the workflow is validated, not silently ignored at fire time. A schedule that never fires is one of the worst failure modes an automation tool can have, so px0 refuses to save one.
+
+<Note>
+  A scheduled workflow must write to a file (`output: {target: file, path: ...}`). Nothing is watching stdout when the run fires, so px0 treats stdout-plus-schedule as a validation error rather than losing the output.
+</Note>
+
+## 2. Install the daemon
+
+```bash
+px0 daemon install
+```
+
+px0 picks the mechanism your OS actually wants:
+
+| Platform | Mechanism |
+| :--- | :--- |
+| macOS | launchd |
+| Linux with a user session bus | systemd (user) |
+| Everything else | cron |
+
+Force the cron fallback with `--fallback-cron` if you would rather not use the native one.
+
+```bash
+px0 daemon status
+px0 daemon start
+px0 daemon stop
+px0 daemon restart
+```
+
+`status` tells you whether the process is genuinely alive — it signals the recorded pid rather than trusting a pidfile — plus the last fire per workflow and each scheduled workflow's next upcoming fire. That last part is the quickest way to sanity-check a cron expression you are unsure about.
+
+To run it in the foreground instead, which is what you want while debugging a schedule:
+
+```bash
+px0 daemon serve
+```
+
+## 3. What it does while it runs
+
+The loop polls every 30 seconds. On each tick it spawns anything due. On the first tick of a new calendar day it also runs the nightly pass:
+
+| Nightly step | What it does |
+| :--- | :--- |
+| Checkpoint scan | Records any hand edits you made to versioned files |
+| Reindex | Rebuilds the retrieval index over `knowledge/` |
+| Ingest queue | Drains queued YouTube playlist jobs into knowledge files |
+| Retention | Deletes run logs past `logs.retention_days` |
+| Update check | Once a week, checks PyPI for a newer px0 |
+
+Every one of those steps is fault-isolated. A broken index or an unreachable playlist is recorded in the report, and the rest of housekeeping still runs — one bad URL should not cost you a week of version checkpoints.
+
+## 4. Missed fires
+
+If your machine was asleep or the daemon was down, the fires it missed are not silently dropped. On startup and on every tick, px0 compares each workflow's schedule against its last recorded fire, runs what it owes you, and marks anything discovered well after it was due as *late* in the run record.
+
+So a laptop that was closed on Friday afternoon still gets its Friday digest when it wakes up — and the record tells you it arrived late, so you are not left wondering why a 5pm digest is timestamped Saturday morning.
+
+## 5. Watch what it is doing
+
+```bash
+px0 daemon logs
+px0 daemon logs --follow      # tail it live; Ctrl-C to stop
+```
+
+```
+2026-08-20T09:00:00+00:00 start: serve started
+2026-08-20T09:00:30+00:00 tick: spawned post-standup (on-time)
+2026-08-20T09:30:00+00:00 nightly: started housekeeping
+2026-08-20T09:30:04+00:00 nightly: checkpoint=2 changed, reindexed=418 passages, retention removed 3 logs
+```
+
+Timestamps in the log are UTC; cron schedules are evaluated in machine local time. That is worth remembering when a fire looks an hour off from what you expected.
+
+The log lives at `logs.path`. There is no rotation yet, so if it ever gets unwieldy, truncate it — nothing reads it back.
+
+For one run rather than the daemon as a whole:
+
+```bash
+px0 runs logs <run-id>
+px0 runs logs <run-id> --follow
+```
+
+`--follow` on a run that has already finished prints what is there and returns immediately rather than hanging, so it is safe to use on any run id without checking first.
+
+## 6. Scheduled runs are just runs
+
+Everything a scheduled fire does is recorded exactly like a manual run, with `trigger: schedule` on the record:
+
+```bash
+px0 runs list --workflow post-standup
+px0 runs list --failed --since 7d
+px0 runs why <run-id>
+```
+
+That is the loop for debugging a schedule that misbehaved: find the run, read what it actually did, fix the workflow file, rerun it by hand to confirm, and let the next fire pick up the corrected file.
+
+## Running without the daemon
+
+You do not have to install it. Without the daemon, `trigger.schedule` is documentation, every run is one you started, and the nightly housekeeping simply does not happen — which mostly means hand edits are checkpointed on the next run instead of overnight, and you reindex knowledge yourself with `px0 knowledge reindex`.
+
+If your machine already has a scheduler you trust, pointing it at `px0 workflows run <id> --quiet` is a perfectly reasonable substitute.
