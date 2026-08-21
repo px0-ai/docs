@@ -1,8 +1,8 @@
 # px[0] Docs
 
-The documentation site for [px0](https://px0.ai), the local-first CLI that turns a sentence into a workflow you can run, schedule, and edit. Published at [docs.px0.ai](https://docs.px0.ai).
+The documentation site for [px0](https://px0.ai), an open-source utility to build custom agents and workflows using natural language, then run them on a schedule. Published at [docs.px0.ai](https://docs.px0.ai).
 
-The product source of truth is the [px0 CLI repository](https://github.com/px0-ai/px0).
+The product source of truth is the [px0 repository](https://github.com/px0-ai/px0).
 
 ## Running the docs locally
 
