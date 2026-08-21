@@ -3,7 +3,7 @@ title: "Browse runs"
 description: "Every run leaves a record. The interactive browser makes finding one, reading what it did, and rerunning it a single session."
 ---
 
-Every run px0 performs — manual, scheduled, or a `px0 knowledge ask` — leaves a record: the inputs it resolved, the guideline versions it inlined, every tool call with its timing, and the outcome.
+Every run px0 performs — manual, scheduled, or a `px0 brain ask` — leaves a record: the inputs it resolved, the guideline versions it inlined, every tool call with its timing, and the outcome.
 
 ```bash
 px0 runs
@@ -91,14 +91,30 @@ Every view has a plain-text equivalent, which is what you want in a script or a 
 px0 runs list                              # identical row text to the list view
 px0 runs list --workflow post-standup
 px0 runs list --failed --since 7d
+px0 runs list --running                    # only what is in flight right now
 px0 runs list --json
 
 px0 runs show <run-id>                     # the full JSON record
-px0 runs output <run-id>                   # just the output
+px0 runs output <run-id>                   # just the output, as recorded
+px0 runs open <run-id>                     # what it produced, reading the file as it is now
 px0 runs logs <run-id> [--follow]          # the raw log
 px0 runs rerun <run-id>
 px0 runs why <run-id>                      # the provenance chain
+px0 runs cancel <run-id> [--force]         # stop a run in flight
 ```
+
+`runs list --running` checks each in-flight marker against the process table before reporting it, so a run that crashed does not show up as one that has been going for days. `runs cancel` sends `SIGTERM`, which lets the run finalize its record as failed; `--force` sends `SIGKILL` instead, which leaves the record as it was last written, so reach for it only when the run is not responding.
+
+`runs open` differs from `runs output`: `output` prints the text recorded on the run, `open` reads the file on disk, so it shows what is there now if something changed it since.
+
+To apply retention outside the daemon's nightly pass — the only way it happens at all on a store that never installs the daemon:
+
+```bash
+px0 runs prune --dry-run   # print the retention windows and how many records they apply to
+px0 runs prune             # delete what is past retention
+```
+
+Runs that called a write tool are never pruned, regardless of age.
 
 `px0 runs list` and the TUI's list view render row text from the same formatter, so what you grep is exactly what you saw on screen. `px0 runs` with no terminal to draw on — piped, or in CI — falls back to that plain listing instead of failing.
 

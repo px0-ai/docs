@@ -11,7 +11,16 @@ px0 config get retrieval.backend
 px0 config set retrieval.backend qmd
 ```
 
-`set` checks the value against the key's type and allowed values before saving. `px0 config get --help` and `px0 config set --help` print the full key list, so you do not have to come back to this page for a name.
+`set` checks the value against the key's type and allowed values before saving:
+
+| Type | How to write it |
+| :--- | :--- |
+| string | as-is; quote it if it contains spaces |
+| integer | digits — a non-integer is refused |
+| boolean | `true` or `false` — nothing else is accepted |
+| list | comma-separated: `"*.excalidraw.md,Templates/*"` |
+
+`px0 config unset <key>` drops a stored override so it falls back to its default — not an error even if the key was never set, and the parent table is removed once it empties. `px0 config get --help` and `px0 config set --help` print the full key list.
 
 ## Interactive helpers
 
@@ -38,16 +47,23 @@ Verifies the key against the live Composio API before storing it, and detects a 
 
 A known harness name (`claude`, `gemini`, `pi`, `opencode`) expands to its full command. Any other literal command works too — a wrapper script, a pinned path — and px0 appends the prompt as the final argument.
 
-## Paths
+## Brain
 
 | Key | Type | Default | What it does |
 | :--- | :--- | :--- | :--- |
-| `knowledge.path` | string | `~/.px0/knowledge` | Directory the knowledge library lives in |
+| `brain.path` | string | `~/.px0/brain` | Directory the brain lives in — point it at an Obsidian vault (or any folder of Markdown) and px0 reads what is already there; dot-folders like `.obsidian/` and `.trash/` are skipped |
+| `brain.private_folder` | string | `work` | Brain subfolder withheld from retrieval and never sent anywhere; set to `""` to disable, or rename it if your vault already has a folder by this name that you do want searched |
+| `brain.ignore` | list | `["*.excalidraw.md"]` | Glob patterns never indexed, on top of the always-skipped dot-folders |
+
+Reindex after changing `brain.path`, `brain.private_folder`, or `brain.ignore`. `px0 init` writes `brain.path` as an absolute path under the store it just created. See [The brain](/brain/library).
+
+## Output
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
 | `output.path` | string | `~/.px0/output` | Default directory for workflow file outputs |
 
-`knowledge.path` can point at any folder — an existing notes vault, for instance. Reindex after changing it. `px0 init` writes both keys as absolute paths under the store it just created.
-
-A workflow's `output.path` is always resolved inside `output.path`, and a path that tries to escape it is rejected. See [Workflow files](/workflows/anatomy).
+A workflow's `output.path` is always resolved inside this directory, and a path that tries to escape it is rejected. See [Workflow files](/workflows/anatomy).
 
 ## Connectors
 
@@ -55,12 +71,44 @@ A workflow's `output.path` is always resolved inside `output.path`, and a path t
 | :--- | :--- | :--- | :--- |
 | `connectors.provider` | `composio` \| `native` | `composio` | Intended default for brokering connections. Not yet enforced — every toolkit currently routes through Composio. |
 | `connectors.retries` | int | `3` | Per-run transient retries, with exponential backoff |
-| `connectors.composio_api_key` | string | — | Your Composio API key |
-| `connectors.ca_bundle` | string | — | CA bundle for outbound TLS, set automatically when an intercepting proxy makes the default bundle insufficient |
+| `connectors.composio_api_key` | string | `""` | Your Composio API key |
+| `connectors.ca_bundle` | string | `""` | CA bundle for outbound TLS, set automatically when an intercepting proxy makes the default bundle insufficient |
 
-`ca_bundle` applies to **every** outbound request px0 makes, not just Composio — a knowledge fetch behind a TLS-inspecting proxy uses it too. An explicit `SSL_CERT_FILE` always wins over it, and px0 never silently disables verification.
+`ca_bundle` applies to **every** outbound request px0 makes, not just Composio — a brain fetch behind a TLS-inspecting proxy uses it too. An explicit `SSL_CERT_FILE` always wins over it, and px0 never silently disables verification.
 
-Retries never apply to "this connector is not configured". That is not a transient failure, so retrying it would only delay the message telling you to authorize the app.
+## Tools
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `tools.allow_shell` | bool | `false` | Allow the `shell.run` tool, which executes an arbitrary local command; off by default because a workflow that can run a shell can do anything you can |
+| `tools.file_roots` | list | `[]` | Extra directories `file.read` and `file.write` may touch, on top of the store itself; a path outside every root is refused |
+| `tools.http_timeout` | int | `20` | Seconds before `http.get` and `http.post` give up on a request |
+| `tools.max_output_bytes` | int | `20000` | Cap on how much text a local tool returns to the model, so one large file or chatty script cannot fill the prompt |
+
+See [Tools](/tools/catalogue).
+
+## Notify
+
+What happens when a scheduled run fails. A workflow's own `on_failure` block overrides all three.
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `notify.on_failure` | string | `""` | `"desktop"` raises a local notification, `"tool"` sends through `notify.channel`, `"none"` (the default) stays silent |
+| `notify.channel` | string | `""` | Tool id used when `notify.on_failure` is `"tool"`, e.g. `slack.post_message` or `gmail.send_message` |
+| `notify.target` | string | `""` | Where the notification goes: a Slack channel for `slack.post_message`, an address for `gmail.send_message` |
+
+See [Status](/reference/status).
+
+## Runs
+
+How a failed run is retried. A workflow's own `retry` block overrides both.
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `runs.max_attempts` | int | `1` | How many times a run is attempted before it is recorded as failed |
+| `runs.retry_backoff_seconds` | int | `30` | Seconds before the second attempt, doubling for each attempt after |
+
+Each attempt writes its own run record, so `px0 runs list` shows the failures that led to a success rather than hiding them. The per-workflow cap is 10.
 
 ## Retrieval
 
@@ -69,26 +117,9 @@ Retries never apply to "this connector is not configured". That is not a transie
 | `retrieval.backend` | `local` \| `qmd` | `local` | Keyword search, or hybrid semantic search |
 | `retrieval.qmd_cmd` | string | `qmd` | Command prefix used to run the qmd CLI |
 | `retrieval.k_default` | int | `5` | Default passages retrieved per query |
-| `retrieval.rerank` | bool | `true` | Reserved for a future rerank stage; not yet wired |
+| `retrieval.rerank` | bool | `true` | Rescore retrieved passages locally by query coverage before trimming to `k`; no model call |
 
-See [Retrieval backends](/knowledge/retrieval).
-
-## Proposals
-
-| Key | Type | Default | What it does |
-| :--- | :--- | :--- | :--- |
-| `proposals.max_per_consolidation` | int | `10` | Cap on proposals surfaced per consolidation session |
-
-A cap exists so a long-neglected store hands you a reviewable batch instead of fifty decisions in a row. See [Reviewing proposals](/guidelines/review).
-
-## Versions
-
-| Key | Type | Default | What it does |
-| :--- | :--- | :--- | :--- |
-| `versions.keep_all` | bool | `true` | Keep every version forever |
-| `versions.max_versions_per_file` | int | `200` | Per-file cap applied by `px0 versions prune` when `keep_all` is `false` |
-
-The default keeps everything, because Markdown files are small and the history is most of the value.
+See [Retrieval backends](/brain/retrieval).
 
 ## Logs and retention
 
@@ -100,17 +131,24 @@ The default keeps everything, because Markdown files are small and the history i
 | `logs.record_retention_days` | int | `365` | Days to keep run records, which outlive the logs |
 | `logs.max_file_size_mb` | int | `20` | Single log file rotation size cap |
 
-Failed logs are kept four times longer than successful ones, because those are the ones you come back to. Retention is applied by the daemon's nightly pass — without the daemon, nothing is deleted.
+Failed logs are kept four times longer than successful ones, because those are the ones you come back to. Retention is applied by the daemon's nightly pass, or on demand with `px0 runs prune`.
 
 ## Updates
 
 | Key | Type | Default | What it does |
 | :--- | :--- | :--- | :--- |
-| `update.channel` | `stable` \| `beta` | `stable` | Release channel |
+| `update.channel` | `stable` \| `beta` | `stable` | Release channel; not functionally checked in this build — `px0 update` reports when no release manifest is configured |
 | `update.check` | bool | `true` | Whether the daemon checks weekly for an available update |
 | `update.auto_install` | bool | `false` | Install updates automatically instead of only surfacing them |
 
 See [Updating px0](/reference/updating).
+
+## Keys that are declared but not yet wired
+
+Named here so the list is honest about what the current build actually does:
+
+- `connectors.provider` — every toolkit routes through Composio regardless.
+- `update.channel` — not functionally checked; `px0 update` reports when no release manifest is configured.
 
 ## Using config values in a workflow
 
@@ -124,11 +162,9 @@ More usefully, this lets a workflow reference a path or a tuning value without h
 
 ## Editing the file directly
 
-Editing `config.toml` by hand is fine, and px0 versions the file like any other, so your edit shows up in history:
+Editing `config.toml` by hand is fine, and px0 versions the file like any other, so your edit shows up in history. The trade-off is that a hand edit skips validation — if px0 behaves oddly after you change the file directly, `px0 config list` shows what it actually parsed, and `px0 doctor` catches the categories of mistake that matter. What you save is checked for parseability; if it no longer parses, px0 says so and names the line to fix, and the edit is still recorded so `px0 changes revert` is there if you would rather drop it wholesale.
 
 ```bash
-px0 versions list config.toml
-px0 versions diff config.toml 3 4
+px0 config edit
+px0 changes list
 ```
-
-The trade-off is that a hand edit skips validation. If px0 behaves oddly after you change the file directly, `px0 config list` shows what it actually parsed, and `px0 doctor` catches the categories of mistake that matter.

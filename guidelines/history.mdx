@@ -1,0 +1,58 @@
+---
+title: "History"
+description: "Trace any output back to the guidelines, passages, and tool calls behind it — and undo any change px0 or you have made."
+---
+
+px0 keeps its own history rather than relying on git, so a store works as a bare directory with nothing installed alongside it. Everything below works offline, on a store you just copied from another machine.
+
+## Ask why
+
+The question that matters most is usually "why did it say that?"
+
+```bash
+px0 runs why <run-id>
+```
+
+`why` walks the full chain behind one run's output: which guideline versions were inlined, which brain passages were retrieved, and which tools were called. Use it when you have an output you are unhappy with.
+
+## Claim-level history
+
+Every `##` heading in a guideline is a claim with its own id and version chain, addressed as `<path>#<heading-slug>` — so a rule that changed reads back on its own rather than as a diff of the whole file.
+
+```bash
+px0 guidelines log commit-style.md#summary-line
+```
+
+`log` prints when the section first appeared, and every version that changed it. Hand edits are picked up too: px0 notices them on the next command and records them, the same as any other change.
+
+## The store-wide change log
+
+A **change** is one atomic write across the store — a workflow build, a guideline the build wrote, a hand edit px0 noticed, a migration. `changes` is that log, one entry per event rather than per file, newest first:
+
+```bash
+px0 changes list
+px0 changes list --since 7d
+px0 changes list --actor builder
+px0 changes show <change-id>
+px0 changes revert <change-id>
+```
+
+px0 records `builder` for workflow and guideline builds, `update` for schema migrations, and `user:manual` for hand edits it detects on its checkpoint scan.
+
+This is the view you want for "what happened to my store last week?" A single change can span several files — a workflow build that also wrote a new guideline, for instance — and `changes show` prints the diff for each file it touched. `changes revert` undoes the whole thing as one unit, in one new change, which is exactly what you want when a build went sideways. The revert is itself recorded, so it can be undone in turn.
+
+Schema migrations are forward-only and are not undone by `changes revert`. `px0 update rollback` reinstalls a previous px0 version and says so explicitly when the update it is rolling back had run migrations.
+
+## Which command do I want?
+
+| You want to | Command |
+| :--- | :--- |
+| Understand an output you disagree with | `px0 runs why <run-id>` |
+| See how one guideline convention evolved | `px0 guidelines log <path>#<anchor>` |
+| See everything that happened recently | `px0 changes list --since 7d` |
+| See one change in full, file by file | `px0 changes show <change-id>` |
+| Undo one change across all its files | `px0 changes revert <change-id>` |
+
+## What is not versioned
+
+`brain/` and `output/` are not versioned, on purpose. The brain is bulk reference material, rebuildable from its source URL; output is a product of a run, and the run record already says how it was made. Version history for either would be noise you have to scroll past to find the history that matters.

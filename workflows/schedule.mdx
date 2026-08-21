@@ -21,6 +21,20 @@ Invalid expressions are rejected when the workflow is validated, not silently ig
   A scheduled workflow must write to a file (`output: {target: file, path: ...}`). Nothing is watching stdout when the run fires, so px0 treats stdout-plus-schedule as a validation error rather than losing the output.
 </Note>
 
+### Or watch instead of scheduling
+
+A workflow does not have to fire on the clock at all. `trigger.watch` polls a read-only tool and runs the workflow when an item it has not seen before turns up:
+
+```yaml
+trigger:
+  watch:
+    tool: github.list_my_prs
+    key: url
+    every: 30m
+```
+
+The first poll only records a baseline, so pointing a watch at a busy source does not immediately fire on everything already there. Composio's own event triggers need a public endpoint to deliver to, which a laptop does not have — this is what a local-first tool does instead. See [Workflow files](/workflows/anatomy#watching-instead-of-scheduling).
+
 ## 2. Install the daemon
 
 ```bash
@@ -54,14 +68,14 @@ px0 daemon serve
 
 ## 3. What it does while it runs
 
-The loop polls every 30 seconds. On each tick it spawns anything due. On the first tick of a new calendar day it also runs the nightly pass:
+The loop polls every 30 seconds. On each tick it fires anything whose cron schedule is due, and polls any `trigger.watch` whose interval has elapsed, firing on anything new. A workflow with `enabled: false` is skipped by both, and by the cron fallback's generated crontab block. On the first tick of a new calendar day it also runs the nightly pass:
 
 | Nightly step | What it does |
 | :--- | :--- |
 | Checkpoint scan | Records any hand edits you made to versioned files |
-| Reindex | Rebuilds the retrieval index over `knowledge/` |
-| Ingest queue | Drains queued YouTube playlist jobs into knowledge files |
-| Retention | Deletes run logs past `logs.retention_days` |
+| Reindex | Rebuilds the retrieval index over `brain/` |
+| Ingest queue | Drains queued YouTube playlist jobs into brain files |
+| Retention | Deletes run logs and records past the `logs.*` settings |
 | Update check | Once a week, checks PyPI for a newer px0 |
 
 Every one of those steps is fault-isolated. A broken index or an unreachable playlist is recorded in the report, and the rest of housekeeping still runs — one bad URL should not cost you a week of version checkpoints.
@@ -113,6 +127,27 @@ That is the loop for debugging a schedule that misbehaved: find the run, read wh
 
 ## Running without the daemon
 
-You do not have to install it. Without the daemon, `trigger.schedule` is documentation, every run is one you started, and the nightly housekeeping simply does not happen — which mostly means hand edits are checkpointed on the next run instead of overnight, and you reindex knowledge yourself with `px0 knowledge reindex`.
+You do not have to install it. Without the daemon, `trigger.schedule` and `trigger.watch` are documentation, every run is one you started, and the nightly housekeeping simply does not happen — which mostly means hand edits are checkpointed on the next run instead of overnight, and you reindex the brain yourself with `px0 brain reindex`.
 
 If your machine already has a scheduler you trust, pointing it at `px0 workflows run <id> --quiet` is a perfectly reasonable substitute.
+
+## Uninstalling the scheduler
+
+```bash
+px0 daemon uninstall
+```
+
+Removes whatever `install` put in place — the launchd plist or the systemd unit, unloaded first — and stops the daemon if it is running. Workflows keep their schedules; nothing fires on its own again until `px0 daemon install` runs again. On the cron fallback, it says that px0's entries are still in your crontab rather than editing it — that file is yours. `install.sh --uninstall` also removes the scheduler unit, but it removes px0 along with it.
+
+## Retries and failure notifications
+
+A workflow can be told how many times to retry itself and how to tell you when it still fails, in its own `retry` and `on_failure` frontmatter, or store-wide with `px0 config set`:
+
+```bash
+px0 config set notify.on_failure desktop     # a local notification
+px0 config set notify.on_failure tool        # or send it somewhere
+px0 config set notify.channel slack.post_message
+px0 config set notify.target "#ops"
+```
+
+A workflow's own `on_failure` block wins over these, so the noisy hourly job can stay quiet while the nightly report shouts. See [Workflow files](/workflows/anatomy#retries-and-failure-notifications).

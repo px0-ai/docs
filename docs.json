@@ -42,19 +42,18 @@
             ]
           },
           {
-            "group": "Knowledge",
+            "group": "Brain",
             "pages": [
-              "knowledge/library",
-              "knowledge/ask",
-              "knowledge/retrieval"
+              "brain/library",
+              "brain/ask",
+              "brain/retrieval"
             ]
           },
           {
             "group": "Guidelines",
             "pages": [
               "guidelines/overview",
-              "guidelines/review",
-              "guidelines/provenance"
+              "guidelines/history"
             ]
           },
           {
@@ -64,17 +63,13 @@
             ]
           },
           {
-            "group": "Skills",
-            "pages": [
-              "skills/agent-skills"
-            ]
-          },
-          {
             "group": "Reference",
             "pages": [
               "reference/cli",
               "reference/configuration",
               "reference/store",
+              "reference/status",
+              "reference/mcp",
               "reference/privacy",
               "reference/troubleshooting",
               "reference/updating"

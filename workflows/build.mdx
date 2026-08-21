@@ -16,6 +16,47 @@ Behind that one command, px0 runs four model passes, each with a job small enoug
 3. **Confirm** — you approve the tool set before anything is authorized.
 4. **Plan** — write the workflow against exactly those tools.
 
+## Starting with no description
+
+`px0 workflows new` on its own opens an interview instead, one question at a time, until px0 has what a workflow file must pin down:
+
+|  |  |
+| :--- | :--- |
+| The job | What should happen |
+| The sources | What it reads: which service, account, repository, channel, folder, or your own notes |
+| The delivery | What it produces and where that goes |
+| The cadence | On demand, on a schedule, or when something happens |
+| Done looks like | What makes the output right rather than merely produced |
+
+```
+› new workflow
+  answer in your own words; press Enter on a blank line to stop
+› What do you want px0 to do for you?
+  digest our merged PRs each week
+› Which repository, and whose PRs — yours or the whole team's?
+  razorpay/api, the whole team's
+› Where should the digest land: a Slack channel, a file, or just printed?
+  #eng on slack
+
+› the request
+Every Friday afternoon, collect the pull requests merged in razorpay/api that
+week and post a short digest to the #eng Slack channel.
+
+› Build this? [Y/edit/n]
+```
+
+One question per turn, and the model sees every answer before writing the next one — so answering "razorpay/api, every Friday" in one breath skips the two questions that would have asked for those separately. Enter on a blank line ends the interview early and the request is written from what you did say, and the interview stops after eight questions regardless.
+
+The request is shown before the build spends a planning call on it: `edit` rewrites it, `n` cancels, anything else builds. Because the interview already settled these questions, the clarifying round below is skipped — you are not asked twice.
+
+Not available with `--yes`, or when stdin is not a terminal: there is nobody to interview, so px0 says so and exits rather than building from nothing.
+
+A description worth writing carefully is a paragraph, and a paragraph does not survive shell quoting well — `--from-file` reads it from a file instead:
+
+```bash
+px0 workflows new "" --from-file ./friday-digest.txt
+```
+
 ## 1. It asks what is ambiguous
 
 ```
@@ -175,7 +216,9 @@ This is for standards px0 cannot guess: what counts as worth flagging in a revie
   problem. Never comment on formatting, that is the linter's job.
 ```
 
-px0 shapes what you wrote into `##` sections, shows you the draft, and takes `again` if you want another pass. What gets saved is an ordinary guideline file: it has version history from v1, so `px0 guidelines log` and `px0 guidelines revert` work on it, and it is added to this workflow's `guidelines:` list — which means its text is inlined into every run from now on.
+px0 shapes what you wrote into `##` sections, shows you the draft, and takes `again` if you want another pass. What gets saved is an ordinary guideline file: it has version history from v1, so `px0 guidelines log` works on it, and it is added to this workflow's `guidelines:` list — which means its text is inlined into every run from now on.
+
+This is the only way a guideline gets created — there is no `px0 guidelines new`. Asking someone to compose a convention from a blank page is the step that stopped guidelines from being written at all, so the build drafts a defensible version and leaves editing to you.
 
 Nothing is proposed for a workflow that already says what to do, and nothing on a topic you already have a guideline for. `--yes` skips the step entirely, since there is no sensible default for "what is your commit message convention".
 
@@ -201,21 +244,22 @@ This rebuilds the workflow rather than opening the file, and that is on purpose:
 
 Hand-editing the body is still perfectly fine for a wording change. Just know that a hand edit will not notice when your new instruction needs a tool the workflow does not have — that is the trade you make by skipping the rebuild.
 
-The rebuild saves under the same id, and the old version stays in history:
+The rebuild saves under the same id, and the old version stays in the store's history:
 
 ```bash
-px0 versions list workflows/friday-pr-digest.md
-px0 versions revert workflows/friday-pr-digest.md --to v1
+px0 changes list
+px0 changes revert <change-id>
 ```
 
 ## Flags
 
 | Flag | Effect |
 | :--- | :--- |
-| `--yes` | Skip every prompt: clarifying questions, tool confirmation, authorization, guideline authoring |
+| `--yes` | Skip every prompt: interview, clarifying questions, tool confirmation, authorization, guideline authoring |
 | `--id <id>` | Name the workflow directly instead of being asked |
 | `--no-clarify` | Build from the description as written, without asking questions |
 | `--no-discover` | Use only px0's curated tools; skip the catalogue search |
+| `--from-file <path>` | Read the description from a file instead of the command line |
 
 `--yes`, `--no-clarify`, and `--no-discover` all work on `px0 workflows edit` too, except `--id`, since an edit keeps the id it already has.
 

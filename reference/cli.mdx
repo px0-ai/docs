@@ -3,9 +3,9 @@ title: "CLI reference"
 description: "Every px0 command, grouped by the entity it acts on, with its flags."
 ---
 
-px0's commands read as **entity, then verb**: `px0 workflows new`, `px0 knowledge search`, `px0 guidelines review`. Once you know the entities, you can usually guess the command.
+px0's commands read as **entity, then verb**: `px0 workflows new`, `px0 brain search`, `px0 guidelines edit`. Once you know the entities, you can usually guess the command.
 
-The only flat commands are the four that act on the install rather than on anything in your store: `init`, `doctor`, `version`, `update`.
+The only flat commands are the ones that act on the install rather than on anything in your store: `init`, `update`, `version`, `doctor`, `status`, and `completion`.
 
 Add `--help` to any command for its own flags. `px0 config get --help` and `px0 config set --help` additionally list every settable key.
 
@@ -15,6 +15,7 @@ Add `--help` to any command for its own flags. `px0 config get --help` and `px0 
 | :--- | :--- |
 | `--json` | Machine-readable output where supported. Implies no colour. |
 | `--no-color` | Plain output, no colour or animation. Same as `NO_COLOR=1`. |
+| `--help`, `-h` | Show help at whatever level it is given. |
 
 Both work at the root (`px0 --json runs list`), and the subcommands that support `--json` accept it in place too.
 
@@ -23,72 +24,104 @@ Both work at the root (`px0 --json runs list`), and the subcommands that support
 | Code | Meaning |
 | :--- | :--- |
 | `0` | Success |
-| `1` | User error — bad arguments, no such workflow, no store, a failed run |
-| `2` | Connector error — an app is unauthorized or unreachable |
-| `3` | Model error — the harness failed, timed out, or refused |
-| `4` | Integrity error — a `px0 doctor` check failed |
+| `1` | User error — bad input, missing file, unknown id, failed validation |
+| `2` | Connector error — an external app call failed or is not authorized |
+| `3` | Model error — the coding-agent harness failed, timed out, or is missing |
+| `4` | Integrity error — the store's version history or index is inconsistent |
+
+## Confirmations
+
+Every command that removes or revokes something asks first, and every one of them takes `--yes` to skip the question. With stdin not a terminal and no `--yes`, the command stops rather than assuming: `workflows rm`, `brain rm`, `guidelines rm`, `tools disconnect`, and `tools call` on a write tool.
 
 ## init
 
 ```bash
-px0 init [dir] [--harness claude|gemini|pi|opencode] [--composio-key KEY]
+px0 init [dir] [--harness claude|gemini|opencode|pi] [--composio-key KEY]
 ```
 
-Scaffolds a store, asks for a Composio API key, and prints suggested next commands. Safe to run in a script: when stdin is not a terminal it skips the prompt and tells you to set the key later. See [Installation](/get-started/installation).
+Scaffolds a store, asks for a Composio API key, and prints suggested next commands. Safe to run in a script: when stdin is not a terminal it skips the prompt and tells you to set the key later. Running against an existing store fills in anything missing and leaves the rest alone. See [Installation](/get-started/installation).
 
 ## workflows
 
 | Command | What it does |
 | :--- | :--- |
-| `px0 workflows new <description>` | Turn a sentence into a workflow |
+| `px0 workflows new [description]` | Turn a sentence into a workflow, or interview you for one if the description is omitted |
 | `px0 workflows run [id]` | Run one now; omit the id to pick from a list |
 | `px0 workflows edit [id]` | Revise the stored request and rebuild |
-| `px0 workflows list` | Every workflow in the store, plus any file that fails to parse |
+| `px0 workflows list` | Every workflow, plus any file that fails to parse |
+| `px0 workflows show <id>` | Where its file is, what version it is on, and the file itself |
+| `px0 workflows validate [id]` | Check frontmatter, tools, guidelines, and cron without running anything |
+| `px0 workflows rm <id>` | Remove, keeping its history |
+| `px0 workflows rename <id> <new-id>` | Rename the file and rewrite its `id` |
+| `px0 workflows copy <id> <new-id>` | Fork a workflow to a new id |
+| `px0 workflows disable <id>` / `enable <id>` | Stop it firing, or let it fire again |
 
-**`new`** — `--yes` skips every prompt, `--id <id>` names it directly, `--no-clarify` skips the clarifying questions, `--no-discover` restricts it to curated tools. See [Build a workflow](/workflows/build).
+**`new`** — `--yes` skips every prompt, `--id <id>` names it directly, `--no-clarify` skips the clarifying questions, `--no-discover` restricts it to curated tools, `--from-file <path>` reads the description from a file. See [Build a workflow](/workflows/build).
 
-**`run`** — `--dry-run` stubs write tools, `--input KEY=VALUE` (repeatable) passes named values, `--stdin` reads piped text, `--output stdout|file` overrides the destination, `--quiet` suppresses decoration, `--json` prints the run record. See [Run a workflow](/workflows/run).
+**`run`** — `--dry-run` stubs write tools, `--input KEY=VALUE` (repeatable) passes named values, `--stdin` reads piped text, `--output stdout|file` overrides the destination, `--timeout <duration>` overrides the workflow's own timeout, `--no-retry` attempts once regardless of the retry policy, `--quiet` suppresses decoration, `--json` prints the run record. See [Run a workflow](/workflows/run).
 
 **`edit`** — takes `--yes`, `--no-clarify`, and `--no-discover`.
+
+**`validate`** — `--json` prints one object per workflow with its errors. Exits `1` if anything is invalid, so it works in a pre-commit hook or CI.
+
+See [Workflow files](/workflows/anatomy) for the full frontmatter reference.
 
 ## tools
 
 | Command | What it does |
 | :--- | :--- |
-| `px0 tools list [toolkit]` | Every tool a workflow can call, read vs write |
+| `px0 tools list [service]` | Every tool a workflow can call, read vs write, optionally by service |
+| `px0 tools search [query]` | Search Composio's catalogue of toolkits and tools |
+| `px0 tools call <tool>` | Call one tool with one set of arguments and print the result |
+| `px0 tools connect <app>` | Authorize an app deliberately |
+| `px0 tools disconnect <app>` | Revoke an app's authorization |
+| `px0 tools refresh [tool...]` | Re-read cached tool definitions from Composio |
 
-`--status` also asks Composio what is authorized, at one API call per toolkit. `px0 --json tools list` includes each tool's parameter schema. See [Tools](/tools/catalogue).
+`list --status` also asks Composio what is authorized, at one API call per toolkit. `px0 --json tools list` includes each tool's parameter schema.
 
-## knowledge
+**`search`** — `--toolkit <slug>` restricts to one toolkit, `--toolkits` lists toolkits instead of tools, `--limit N` caps the results.
+
+**`call`** — `--arg KEY=VALUE` (repeatable) passes arguments, `--yes` skips the confirmation a write tool asks for.
+
+**`connect`** — `--reconnect` drops the existing authorization first. **`disconnect`** — `--yes` skips the confirmation. **`refresh`** — `--forget` drops the cache instead of re-reading it.
+
+See [Tools](/tools/catalogue) and [Connections](/tools/connections).
+
+## brain
 
 | Command | What it does |
 | :--- | :--- |
-| `px0 knowledge add <url-or-file>` | Ingest a URL, or a `.md`, `.txt`, `.rst`, `.pdf`, `.docx`, or `.odt` file |
-| `px0 knowledge refresh <path>` | Re-fetch an already-ingested source |
-| `px0 knowledge list` | Every knowledge file |
-| `px0 knowledge search <query>` | Retrieve matching passages |
-| `px0 knowledge ask <question>` | Answer a question from the library |
-| `px0 knowledge reindex` | Rebuild the retrieval index |
+| `px0 brain add <source>` | Ingest a URL, a YouTube link, or a local file |
+| `px0 brain refresh [path]` | Re-fetch an already-ingested source |
+| `px0 brain list` | Every file in the brain |
+| `px0 brain show <path>` | One file: source, kind, and text |
+| `px0 brain rm <path>` | Remove a file and drop it from the index |
+| `px0 brain export <dir>` | Copy the library elsewhere, keeping its structure |
+| `px0 brain search <query>` | Retrieve matching passages |
+| `px0 brain ask <question>` | Answer a question from the library |
+| `px0 brain reindex` | Rebuild the retrieval index |
 
-**`add`** — `--to docs|blogs|papers` overrides the destination folder, `--no-propose` skips the guideline proposal pass.
+**`add`** — `--to <folder>` overrides the destination folder, `--from-file <path>` ingests every source listed in a file, one per line.
 
-**`search`** / **`ask`** — `--k N` sets how many passages to retrieve. `ask` takes `--sources` to print citations. See [The knowledge library](/knowledge/library).
+**`refresh`** — `--all` re-fetches everything with a recorded source, `--stale` re-fetches what has gone stale (plus every stub), `--days N` sets what counts as stale (default 30).
+
+**`export`** — `--include-private` includes the private folder, held back by default.
+
+**`search`** / **`ask`** — `--k N` sets how many passages to retrieve, `--kind {blog,paper,doc,video,stub}` narrows to one kind. `ask` also takes `--sources` to print citations.
+
+See [The brain](/brain/library).
 
 ## guidelines
 
 | Command | What it does |
 | :--- | :--- |
-| `px0 guidelines list` | Every guideline file |
-| `px0 guidelines review` | Accept, edit, or dismiss pending proposals |
-| `px0 guidelines consolidate` | Wider sweep: proposals, decay, contradictions, unreferenced files |
+| `px0 guidelines list` | Every guideline, numbered, with its first rule beside it |
+| `px0 guidelines edit <name>` | Open a guideline in your editor |
+| `px0 guidelines show <name>` | Print one guideline verbatim |
+| `px0 guidelines rm <name>` | Remove a guideline, keeping its history |
 | `px0 guidelines log <claim-id>` | One claim's edit history |
-| `px0 guidelines revert <claim-id> --to vN` | Restore one claim to an earlier version |
-| `px0 guidelines why <claim-id>` | How a claim came to say what it says |
-| `px0 guidelines alias list` | Claim-id aliases |
-| `px0 guidelines alias link <old> <new>` | Link two ids for the same idea |
-| `px0 guidelines alias unlink <old>` | Remove an alias |
 
-`review` and `consolidate` both take `--list-only` to print without prompting. A claim id is `<path>#<heading-slug>`. See [Guidelines](/guidelines/overview).
+A claim id is `<file>#<slug>`, for example `commit-style.md#summary-line`. There is no `px0 guidelines new` — a guideline is only ever created by `px0 workflows new` drafting one from a workflow. See [Guidelines](/guidelines/overview).
 
 ## runs
 
@@ -97,12 +130,15 @@ Scaffolds a store, asks for a Composio API key, and prints suggested next comman
 | `px0 runs` | Interactive browser over past runs |
 | `px0 runs list` | The same rows as plain text |
 | `px0 runs show <run-id>` | The full JSON record |
-| `px0 runs output <run-id>` | Just the output |
+| `px0 runs output <run-id>` | What it produced, as recorded |
 | `px0 runs logs <run-id>` | The raw log; `--follow` to tail |
 | `px0 runs rerun <run-id>` | Run that workflow again; a dry run reruns as a dry run |
 | `px0 runs why <run-id>` | How the run reached its result |
+| `px0 runs cancel <run-id>` | Stop a run in flight; `--force` sends `SIGKILL` |
+| `px0 runs prune` | Delete logs and records past retention; `--dry-run` to preview |
+| `px0 runs open <run-id>` | What it produced, reading the file as it is now |
 
-`list` takes `--workflow <id>`, `--failed`, `--since <age>` (`12h`, `7d`, `2w`), and `--json`. `px0 runs` with no terminal falls back to the plain listing, and only the current store's runs are listed. See [Browse runs](/runs/browse).
+`list` takes `--workflow <id>`, `--failed`, `--since <age>` (`12h`, `7d`, `2w`), `--running`, and `--json`. `px0 runs` with no terminal falls back to the plain listing, and only the current store's runs are listed. See [Browse runs](/runs/browse).
 
 ## daemon
 
@@ -113,48 +149,31 @@ Scaffolds a store, asks for a Composio API key, and prints suggested next comman
 | `px0 daemon start` / `stop` / `restart` | Control it |
 | `px0 daemon serve` | Run it in the foreground |
 | `px0 daemon logs` | The daemon log; `--follow` to tail |
+| `px0 daemon uninstall` | Remove whatever `install` put in place |
 
 `install` takes `--fallback-cron` to force cron over the native mechanism. See [Schedules and the daemon](/workflows/schedule).
-
-## versions
-
-| Command | What it does |
-| :--- | :--- |
-| `px0 versions list <path>` | Every version of a file |
-| `px0 versions show <path>@vN` | One version's contents |
-| `px0 versions diff <path> <v1> <v2>` | Diff two versions |
-| `px0 versions revert <path> --to N` | Restore a file to a version |
-| `px0 versions prune` | Apply the version cap; `--dry-run` to preview |
-
-Paths are relative to the store, e.g. `workflows/friday-pr-digest.md`. See [Provenance and history](/guidelines/provenance).
 
 ## changes
 
 | Command | What it does |
 | :--- | :--- |
 | `px0 changes list` | Every recorded change, newest first |
-| `px0 changes show <change-id>` | One change's files |
+| `px0 changes show <change-id>` | One change's files, each with its diff |
 | `px0 changes revert <change-id>` | Undo one change across all its files |
 
-`list` takes `--since <age>` (`12h`, `7d`, `2w`), `--actor <name>`, and `--json`.
-
-## skills
-
-| Command | What it does |
-| :--- | :--- |
-| `px0 skills build` | Compile `guidelines/` into agent skill bundles |
-| `px0 skills <anything else>` | Forwarded to `npx skills <args> -g` |
-
-Common forwarded verbs are `search`, `add`, `list`, `check`, `update`, and `remove`. See [Agent skills](/skills/agent-skills).
+`list` takes `--since <age>` (`12h`, `7d`, `2w`), `--actor <name>` (`builder`, `update`, `user:manual`), and `--json`. See [History](/guidelines/history).
 
 ## store
 
 | Command | What it does |
 | :--- | :--- |
-| `px0 store list` | Workflows, guidelines, and knowledge in one pass |
+| `px0 store list` | Workflows, guidelines, and the brain in one pass |
 | `px0 store export <dir>` | Portable copy of content and history, secrets stripped |
+| `px0 store import <dir>` | Load an exported store into this one |
+| `px0 store path` | Where the store is |
+| `px0 store verify` | Check the store's own internal consistency |
 
-`export` copies content and history with secrets stripped: the Composio key is blanked in the exported `config.toml` and purged from its version history. See [The store](/reference/store).
+`export` strips secrets: the Composio key is blanked in the exported `config.toml`, and its version history is dropped from the export so the key is not recoverable from the history blobs either. `import` takes `--merge` to add what is missing and keep everything already here, or `--force` to let the import win on a collision — without either, importing into an existing store stops rather than silently overwriting. See [The store](/reference/store).
 
 ## config
 
@@ -163,10 +182,21 @@ Common forwarded verbs are `search`, `add`, `list`, `check`, `update`, and `remo
 | `px0 config list` | Every key with its value, default, and description |
 | `px0 config get <key>` | One key's current value |
 | `px0 config set <key> <value>` | Validate and save one key |
+| `px0 config unset <key>` | Drop a key's override, falling back to its default |
+| `px0 config edit` | Open `config.toml` in your editor |
+| `px0 config path` | Where `config.toml` is |
 | `px0 config model` | Pick a harness and model interactively, verifying it works |
 | `px0 config composio [key]` | Set the Composio API key; prompts and masks if omitted |
 
 See [Configuration](/reference/configuration).
+
+## status
+
+```bash
+px0 status [--hours N] [--json]
+```
+
+Whether anything needs attention, in one screen: the daemon, workflow counts, upcoming fires, recent runs and failures, and the same problems `doctor` and `runs list --failed` would surface separately — assembled from local state, with no network or model call. `--hours N` sets how far back a failure still counts as news (default 24). See [Status](/reference/status).
 
 ## doctor
 
@@ -174,9 +204,25 @@ See [Configuration](/reference/configuration).
 px0 doctor [--quick] [--json]
 ```
 
-Runs every health check and prints a concrete fix for each failure. Exits `0` when all pass, `4` when any fail. `--quick` skips the slower checks — daemon, harness, index — that need a live subprocess or a filesystem walk.
+Runs every health check and prints a concrete fix for each failure. Exits `0` when all pass, `4` when any fail. `--quick` skips the slower checks that need a live subprocess or a filesystem walk.
 
-The checks are `credentials`, `versions`, `locks`, `schema`, `connections`, `workflows`, `unreferenced_guidelines`, `update`, `daemon`, `harness`, and `index`. See [Troubleshooting](/reference/troubleshooting).
+The checks are `credentials`, `versions`, `locks`, `schema`, `connections`, `workflows`, `unreferenced_guidelines`, `update`, `daemon`, `harness`, `index`, and `private_folder`. See [Troubleshooting](/reference/troubleshooting).
+
+## mcp
+
+```bash
+px0 mcp serve [--allow-runs]
+```
+
+Exposes the brain and the workflow list over the Model Context Protocol, so a coding agent can discover and use them without being told how the CLI works. `--allow-runs` is required before a client can actually run a workflow. See [MCP](/reference/mcp).
+
+## completion
+
+```bash
+px0 completion {bash,zsh,fish}
+```
+
+Prints a shell completion script, generated from the command tree itself — workflow ids, config keys, and run ids complete too, read live from the store.
 
 ## update and version
 
@@ -193,8 +239,9 @@ See [Updating px0](/reference/updating).
 | Variable | Effect |
 | :--- | :--- |
 | `PX0_HOME` | Store location. Defaults to `~/.px0`. |
-| `COMPOSIO_API_KEY` | Read at startup if the stored key is absent |
-| `SSL_CERT_FILE` | CA bundle for connector TLS; always wins over `connectors.ca_bundle` |
+| `COMPOSIO_API_KEY` | Composio key. Overrides `connectors.composio_api_key`. |
+| `REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE` | Set by px0 from `connectors.ca_bundle` so every outbound HTTPS call trusts an intercepting proxy. An explicit `SSL_CERT_FILE` always wins. |
 | `NO_COLOR` | Plain output |
 | `FORCE_COLOR` | Keep colour through a pipe |
-| `PAGER` | Used by the run browser's log view |
+| `TERM` | Controls coloured output |
+| `PAGER` | Used by the run browser's log view, and for other long output |

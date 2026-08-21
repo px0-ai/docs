@@ -9,10 +9,10 @@ They exist to solve a specific problem. A model's default voice is not yours, an
 
 ```bash
 px0 guidelines list
-$EDITOR ~/.px0/guidelines/commit-messages.md
+px0 guidelines edit commit-messages
 ```
 
-`px0 init` scaffolds a set of starter guidelines. Read them, rewrite them, or delete them — they are ordinary Markdown files, and they are yours.
+`px0 init` scaffolds a set of starter guidelines. Read them, rewrite them, or delete them — they are ordinary Markdown files, and they are yours. `px0 guidelines edit` opens one in `$VISUAL`, `$EDITOR`, or the first of `nano`, `vim`, `vi` that exists; what you save is recorded as a change. `px0 guidelines show <name>` prints one verbatim — the same text a workflow inlines.
 
 ## How a workflow uses them
 
@@ -26,7 +26,7 @@ At run time those files are read and inlined **verbatim** into the prompt — at
 
 Two design choices here are worth understanding, because they explain behaviour you will notice:
 
-**Guidelines are matched by name, never by similarity.** Unlike `knowledge/`, which is retrieved, a guideline is either in the list or it is not. A convention you rely on should not depend on a search hit — "sometimes it follows my commit style" is worse than useless.
+**Guidelines are matched by name, never by similarity.** Unlike `brain/`, which is retrieved, a guideline is either in the list or it is not. A convention you rely on should not depend on a search hit — "sometimes it follows my commit style" is worse than useless.
 
 **Which also means an irrelevant guideline actively hurts.** Since the whole file is inlined, an unrelated guideline costs tokens and misleads the model. This is why the builder attaches a guideline only when it genuinely matches the task: a commit-message workflow gets `commit-messages.md`, a workflow about haikus gets none.
 
@@ -44,50 +44,35 @@ Guidelines work best when they read like instructions to a new colleague who is 
 
 ## Guidelines px0 offers to write for you
 
-Partway through a workflow build, px0 may notice that the job depends on a convention it cannot guess — the voice of a public comment, what counts as worth flagging in a review — and offer to write it down:
+Near the end of a workflow build, px0 asks itself whether the job depends on a convention it cannot guess — the voice of a public comment, what counts as worth flagging in a review — and no file in `guidelines/` covers it. When it does, px0 drafts that guideline from the workflow itself and offers it:
 
 ```
-guideline: PR comment voice and format
-  · The workflow posts comments publicly under your account, so the tone
-    and directness need to match how you normally write review feedback.
-› Write it now? [y/N]
+› guideline: Review rubric
+  the workflow comments on PRs and has no rubric to comment against
+[..] would be saved as  guidelines/review-rubric.md
+
+## Flag only real breakage
+...
+
+› Keep it? [Y/again/n]
 ```
 
-You answer in your own words, a couple of lines is plenty, and px0 shapes it into `##` sections and shows you the draft. What gets saved is an ordinary guideline file with version history from v1, added to that workflow's `guidelines:` list.
+`again` redraws it, `n` skips it, anything else saves it. What gets saved is an ordinary guideline file with version history from v1, added to that workflow's `guidelines:` list — so `px0 guidelines log` works on it from day one.
 
-Nothing is proposed for a workflow that already says what to do, and nothing on a topic you already have a guideline for. See [Build a workflow](/workflows/build).
+This is the only way a guideline gets created — there is no `px0 guidelines new`. Asking someone to compose a convention from a blank page is the step that stopped guidelines from being written at all, so the build drafts a defensible version and leaves editing to you. Nothing is proposed for a workflow that already says what to do, and nothing on a topic you already have a guideline for. Skipped entirely under `--yes`: there is nobody to show a draft to, and a convention nobody saw should not land in the store. See [Build a workflow](/workflows/build).
 
-## Guidelines change themselves — carefully
-
-px0 never edits a file under `guidelines/` on its own. When a run or a knowledge ingest turns up something that looks like a new rule, or a correction to an existing one, it is filed as a pending proposal for you to accept, edit, or dismiss.
+## Removing a guideline
 
 ```bash
-px0 guidelines review
+px0 guidelines rm outdated-voice
 ```
 
-This restraint is the whole point. A tool that quietly rewrites your conventions based on its own inference is a tool you stop trusting. See [Reviewing proposals](/guidelines/review).
-
-## `guidelines/work/` stays inside px0
-
-Files under `guidelines/work/` still reach the model at run time — they are inlined like any other guideline — but they are never written into a compiled skill bundle that a coding agent could carry into a repository. See [Agent skills](/skills/agent-skills).
-
-## Guidelines your editor sees too
-
-The same files can be compiled into skill bundles your coding agent loads in ordinary interactive sessions, not just inside px0 runs:
-
-```bash
-px0 skills build
-```
-
-That is how a convention you wrote for a px0 workflow starts shaping the code review you do by hand ten minutes later.
+Workflows that name the guideline are listed first, since they will fail validation until they stop naming it. The content stays in the object store, so `px0 changes revert` puts it back.
 
 ## Next steps
 
-<CardGroup cols={2}>
-  <Card title="Reviewing proposals" icon="clipboard-check" href="/guidelines/review">
-    Accept, edit, or dismiss what px0 suggests.
-  </Card>
-  <Card title="Provenance and history" icon="clock-rotate-left" href="/guidelines/provenance">
-    Trace any claim or output back to its sources.
+<CardGroup cols={1}>
+  <Card title="History" icon="clock-rotate-left" href="/guidelines/history">
+    Trace any claim or output back to its sources, and undo a change.
   </Card>
 </CardGroup>

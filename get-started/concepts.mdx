@@ -1,9 +1,9 @@
 ---
 title: "Core concepts"
-description: "The six ideas px0 is built from — the store, workflows, tools, guidelines, knowledge, and runs — and how they relate to each other."
+description: "The ideas px0 is built from — the store, workflows, tools, guidelines, the brain, and runs — and how they relate to each other."
 ---
 
-px0 has a small vocabulary, and everything in the CLI is named after it. Commands read as entity then verb: `px0 workflows new`, `px0 knowledge search`, `px0 guidelines review`. Once you know the six nouns, you can guess most of the commands.
+px0 has a small vocabulary, and everything in the CLI is named after it. Commands read as entity then verb: `px0 workflows new`, `px0 brain search`, `px0 guidelines edit`. Once you know the nouns, you can guess most of the commands.
 
 ## The store
 
@@ -13,16 +13,16 @@ Everything px0 knows lives in one directory, `~/.px0` by default. Set `PX0_HOME`
 | :--- | :--- | :--- |
 | `workflows/` | The jobs px0 can run, one Markdown file each | Yes |
 | `guidelines/` | Your conventions, inlined into prompts verbatim | Yes |
-| `knowledge/` | What you have read and kept, in `docs/`, `blogs/`, `papers/` | No |
+| `brain/` | What you have read and kept, in `docs/`, `blogs/`, `papers/` | No |
 | `output/` | What runs produced when a workflow writes to a file | No |
-| `skills/` | Guideline bundles compiled for your coding agent | Derived |
+| `tools/` | Tools you declared yourself, one TOML file each | No |
 | `config.toml` | Every setting | Yes |
-| `.state/` | Indexes, version history, proposals, credentials, daemon state | Internal |
+| `.state/` | Indexes, version history, credentials, daemon state | Internal |
 
-The first four are ordinary Markdown you can open, edit, move, and grep. There is no database you have to go through and no compile step — edit a workflow by hand and the next run picks it up.
+The first three are ordinary Markdown you can open, edit, move, and grep. There is no database you have to go through and no compile step — edit a workflow by hand and the next run picks it up.
 
 <Note>
-  `.state/` is the one folder not meant for hand-editing. It holds the retrieval index, the version manifest, pending proposals, `credentials.toml` (kept at mode `0600`), and the daemon's schedule state. Everything in it is either derived from your files or rebuildable.
+  `.state/` is the one folder not meant for hand-editing. It holds the retrieval index, the version manifest, `credentials.toml` (kept at mode `0600`), and the daemon's schedule state. Everything in it is either derived from your files or rebuildable.
 </Note>
 
 px0 keeps its own history rather than relying on git, so a store works as a bare directory with nothing else installed alongside it. See [The store](/reference/store).
@@ -58,12 +58,14 @@ Two details are worth internalizing early, because they explain most of px0's be
 
 ## Tools and connections
 
-A tool is how a workflow reaches outside px0. Every tool routes through [Composio](https://composio.dev), and there are two kinds:
+A tool is how a workflow reaches outside px0. Most tools route through [Composio](https://composio.dev), and there are four kinds:
 
 - **Curated** (`slack.post_message`, `github.get_pr`) — ten hand-written tools with stable argument names.
-- **Discovered** (`composio:SLACK_SEND_MESSAGE`) — anything `px0 workflows new` found by searching Composio's catalogue, which is thousands of tools across hundreds of toolkits.
+- **Discovered** (`composio:SLACK_SEND_MESSAGE`) — anything `px0 workflows new` found by searching Composio's catalogue, which is thousands of tools across more than 1,300 toolkits.
+- **Local** (`file.read`, `shell.run`, `brain.add`) — reaches this machine directly, never through Composio.
+- **User-declared** — a tool you describe yourself in a TOML file under the store's `tools/` folder, wrapping a script or command you already have.
 
-They execute identically. The `composio:` prefix only tells you where the tool came from.
+They all execute the same way. The `composio:` prefix only tells you where a discovered tool came from.
 
 Every tool declares its access, taken from Composio's own metadata rather than guessed from its name:
 
@@ -75,29 +77,29 @@ Every tool declares its access, taken from Composio's own metadata rather than g
 
 px0 surfaces write tools everywhere it can: the builder calls them out before generating a workflow, `--dry-run` stubs them instead of executing them, and `px0 runs` marks any run that used one. See [Tools](/tools/catalogue).
 
-There is no connect command. You set one API key, and after that apps authorize themselves — the first time a workflow needs Gmail, px0 prepares Gmail's authorization and hands you the URL to approve. See [Connections](/tools/connections).
+You set one Composio API key, and after that apps authorize themselves — the first time a workflow needs Gmail, px0 prepares Gmail's authorization and hands you the URL to approve. `px0 tools connect <app>` does the same thing deliberately, ahead of time. See [Connections](/tools/connections).
 
 ## Guidelines
 
 Guidelines are prescriptive prose about how you work: how commit messages are written, what a Go review checks, how a summary should sound. They exist because a model's default voice is not yours, and telling it again in every workflow does not scale.
 
-A workflow names the guideline files it needs, and those files are inlined verbatim into the prompt at run time. This is deliberate and deterministic — guidelines are never retrieved by similarity the way knowledge is, because a convention you rely on should not depend on a search hit.
+A workflow names the guideline files it needs, and those files are inlined verbatim into the prompt at run time. This is deliberate and deterministic — guidelines are never retrieved by similarity the way brain material is, because a convention you rely on should not depend on a search hit.
 
-px0 never edits a file under `guidelines/` on its own. When a run or an ingest turns up something that looks like a new rule, it is filed as a proposal for you to accept, edit, or dismiss. See [Guidelines](/guidelines/overview).
+You do not write one from scratch. There is no `px0 guidelines new` — the only way a guideline gets created is that `px0 workflows new` notices a workflow leans on a convention no file covers, drafts a defensible first version from the workflow itself, shows it to you, and lists it on the workflow so every run inlines it. `px0 guidelines edit <name>` is how a draft becomes yours. See [Guidelines](/guidelines/overview).
 
-## Knowledge
+## The brain
 
-`knowledge/` is the library of what you have read and kept: papers, blog posts, internal docs, video transcripts. Unlike workflows and guidelines it is not versioned, because it is bulk reference material and rebuildable from its source URL.
+`brain/` is the library of what you have read and kept: papers, blog posts, internal docs, video transcripts. Unlike workflows and guidelines it is not versioned, because it is bulk reference material and rebuildable from its source URL. It can be px0's own folder or any folder of Markdown you already keep — including an Obsidian vault.
 
-Two things use it. `px0 knowledge ask` answers questions across the whole library, and a workflow can declare a `retrieve:` input to pull relevant passages into its prompt. See [The knowledge library](/knowledge/library).
+Two things use it. `px0 brain ask` answers questions across the whole library, and a workflow can declare a `retrieve:` input to pull relevant passages into its prompt. See [The brain](/brain/library).
 
 <Note>
-  Anything filed under `knowledge/work/` is excluded from every retrieval px0 performs — search, ask, and workflow inputs alike. That is a hard exclusion, not a ranking penalty, so work material never leaks into a prompt that leaves your machine.
+  Anything filed under `brain/work/` is excluded from every retrieval px0 performs — search, ask, and workflow inputs alike. That is a hard exclusion, not a ranking penalty, so work material never leaks into a prompt that leaves your machine.
 </Note>
 
 ## Runs
 
-Every execution leaves a record: the inputs it resolved, the guideline versions it inlined, every tool call with its timing, and the outcome. Manual runs, scheduled fires, and `px0 knowledge ask` all produce one.
+Every execution leaves a record: the inputs it resolved, the guideline versions it inlined, every tool call with its timing, and the outcome. Manual runs, scheduled fires, and `px0 brain ask` all produce one.
 
 That record is what makes px0 auditable. `px0 runs why <run-id>` walks the full chain behind an output — which guideline versions were inlined, which passages were retrieved, which tools were called — and it works offline, on a bare store, with nothing else installed. See [Browse runs](/runs/browse).
 
@@ -117,15 +119,16 @@ It also means prompts leave your machine through that CLI. [What leaves your mac
 
 ## The daemon
 
-A workflow with a schedule does not fire on its own; something has to watch the clock. `px0d` is that something, and it is deliberately dumb: it polls `workflows/`, evaluates cron expressions in machine local time, spawns anything due, and runs one housekeeping pass a day (checkpointing hand edits, reindexing knowledge, draining queued ingests, applying log retention, checking weekly for updates).
+A workflow with a schedule does not fire on its own; something has to watch the clock. `px0d` is that something, and it is deliberately dumb: it polls `workflows/`, evaluates cron expressions in machine local time, spawns anything due, polls any `trigger.watch` whose interval has elapsed, and runs one housekeeping pass a day (checkpointing hand edits, reindexing the brain, draining queued ingests, applying log retention, checking weekly for updates).
 
-Nothing about the daemon is required. Without it, `trigger.schedule` is documentation and every run is one you started. See [Schedules and the daemon](/workflows/schedule).
+A workflow does not have to watch the clock at all — `trigger.watch` polls a read-only tool instead and fires when an item it has not seen before appears, which is how a laptop without a public endpoint still reacts to something happening rather than only to the time of day.
+
+Nothing about the daemon is required. Without it, `trigger.schedule` and `trigger.watch` are documentation and every run is one you started. See [Schedules and the daemon](/workflows/schedule).
 
 ## History and provenance
 
-Workflows, guidelines, and config are versioned by px0 itself, at two granularities:
+Workflows, guidelines, and config are versioned by px0 itself. A **change** is one atomic write across the store — a workflow build, a guideline the build wrote, a hand edit px0 noticed — and `px0 changes list|show|revert` is the store-wide log of every one, newest first, undoing a whole change at once.
 
-- **File level.** `px0 versions list|show|diff|revert` for any versioned file, and `px0 changes list|show|revert` for the store-wide log of every change, newest first.
-- **Claim level.** A guideline section is addressed as `<path>#<heading-slug>`, so `px0 guidelines log` and `px0 guidelines revert` can walk and restore one convention without touching the rest of the file.
+Every file also carries its own version chain underneath, which is what a guideline's claim history reads from: a section is addressed as `<path>#<heading-slug>`, and `px0 guidelines log <claim-id>` walks when it changed and what changed it.
 
-Hand edits are not invisible to this. The daemon's nightly pass checkpoints anything you changed in an editor, so your own edits show up in the same history as px0's. See [Provenance and history](/guidelines/provenance).
+Hand edits are not invisible to this. The daemon's nightly pass checkpoints anything you changed in an editor, so your own edits show up in the same history as px0's, recorded under the `user:manual` actor. See [History](/guidelines/history).

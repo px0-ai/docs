@@ -11,7 +11,7 @@ px0 doctor
 
 `doctor` exits `0` when everything passes and `4` when any check fails, so it works in a health-check script. Every failing check prints a concrete fix chosen for *how* it failed — the same check can fail for different reasons, and a missing binary and a version-drifted one need different commands.
 
-`--quick` skips the three slower checks (daemon, harness, index) that need a live subprocess or a filesystem walk. `--json` gives you the whole report as data.
+`--quick` skips the slower checks (daemon, harness, index) that need a live subprocess or a filesystem walk. `--json` gives you the whole report as data.
 
 ## The checks
 
@@ -27,9 +27,10 @@ px0 doctor
 | `update` | Reports what the weekly check found | No — informational |
 | `daemon` | Whether the scheduler is running | No — informational |
 | `harness` | Your model backend actually responds | Yes |
-| `index` | The retrieval index is not empty while knowledge exists | Yes |
+| `index` | The retrieval index is not empty while the brain has files | Yes |
+| `private_folder` | How much the private folder is holding back from retrieval | No — informational |
 
-Two of those never fail on purpose. A stopped daemon is a choice, not a fault, and being one release behind is not a broken store — reporting them as failures would train you to ignore `doctor` output.
+Two of those never fail on purpose. A stopped daemon is a choice, not a fault, and being one release behind is not a broken store — reporting them as failures would train you to ignore `doctor` output. `private_folder` is reported even when healthy, because the exclusion is invisible in normal use: a brain pointed at a vault with its own `work/` folder can have all of it quietly missing from every search.
 
 ## Fixing each failure
 
@@ -81,15 +82,15 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
     ```
   </Accordion>
 
-  <Accordion title="index — knowledge exists but nothing is indexed">
+  <Accordion title="index — brain files exist but nothing is indexed">
     ```
-    ✗ index  12 knowledge files, 0 indexed passages
+    ✗ index  12 brain files, 0 indexed passages
     ```
 
-    Until the index is built, `px0 knowledge ask` and `px0 knowledge search` have nothing to retrieve from:
+    Until the index is built, `px0 brain ask` and `px0 brain search` have nothing to retrieve from:
 
     ```bash
-    px0 knowledge reindex
+    px0 brain reindex
     ```
 
     On the `qmd` backend this check reports something different — the qmd version and whether you have consented to the model download:
@@ -155,13 +156,22 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
 
   <Accordion title="unreferenced_guidelines — informational, not a fault">
     ```
-    ✓ unreferenced_guidelines  6 unreferenced file(s) -- see `px0 guidelines consolidate`
+    ✓ unreferenced_guidelines  6 unreferenced file(s)
     ```
 
-    Every freshly initialized store reports this, because `px0 init` scaffolds guidelines but no workflows. It is a nudge to prune, not a problem:
+    Every freshly initialized store reports this, because `px0 init` scaffolds starter guidelines before any workflow lists them. It is a nudge, not a problem: `px0 guidelines list` shows what is there, and `px0 guidelines rm <name>` clears out one you do not want, keeping its history.
+  </Accordion>
+
+  <Accordion title="private_folder — how much retrieval is holding back">
+    ```
+    ✓ private_folder  12 file(s) held back under work/
+    ```
+
+    Reported even when everything is fine, because the exclusion is otherwise invisible — a brain pointed at a vault with its own top-level `work/` can have all of it quietly missing from every `search`, `ask`, and workflow `retrieve:` input. If that is not what you want, rename or disable the private folder:
 
     ```bash
-    px0 guidelines consolidate
+    px0 config set brain.private_folder px0-private
+    px0 config set brain.private_folder ""
     ```
   </Accordion>
 </AccordionGroup>
@@ -215,7 +225,7 @@ Open the run in `px0 runs` and read two fields: the **rendered prompt** (the exa
 
 ```bash
 px0 runs why <run-id>
-px0 versions diff guidelines/summarization.md 4 5
+px0 guidelines log guidelines/summarization.md#some-rule
 ```
 
 ### A run failed on its output path

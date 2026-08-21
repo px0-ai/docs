@@ -20,21 +20,21 @@ Two things follow from that, and both matter when writing docs:
 
 ## Terminology
 
-Use these terms consistently. They match the CLI's own vocabulary, where commands read as entity then verb (`px0 workflows new`, `px0 knowledge search`).
+Use these terms consistently. They match the CLI's own vocabulary, where commands read as entity then verb (`px0 workflows new`, `px0 brain search`).
 
 | Use | Not |
 | :--- | :--- |
 | store (the `~/.px0` directory) | project, workspace, database |
 | workflow | job, task, automation, recipe |
 | guideline | rule, instruction, style guide, memory |
-| knowledge (the library) | docs, corpus, notes, RAG store |
+| brain (the library, `brain/`) | knowledge, docs, corpus, notes, RAG store |
 | run (one execution, with a record) | execution, invocation, job run |
 | tool | connector, integration, action |
 | toolkit / app (a Composio provider) | service, vendor |
 | harness / model backend | LLM provider, model API |
 | daemon (`px0d`, the scheduler) | cron job, worker, service |
-| claim (an addressable guideline section) | rule id, section |
-| proposal (a pending guideline change) | suggestion, PR |
+| change (an atomic store-wide write, `px0 changes`) | commit, transaction |
+| claim (an addressable guideline section, `<file>#<slug>`) | rule id, section |
 
 Write `px0` in lowercase, including at the start of a sentence. `px[0]` is the brand mark and is used only in the site name and navigation.
 

@@ -11,7 +11,7 @@ This walks the whole loop end to end: scaffold a store, get one real output with
     px0 init
     ```
 
-    This creates `~/.px0` and asks for your Composio API key. Skip the key if you do not have one yet; the knowledge library in the next step needs nothing but the store, and you can add the key later with `px0 config composio <key>`.
+    This creates `~/.px0` and asks for your Composio API key. Skip the key if you do not have one yet; the brain in the next step needs nothing but the store, and you can add the key later with `px0 config composio <key>`.
 
     Using a backend other than `claude`? Point px0 at it now:
 
@@ -21,16 +21,16 @@ This walks the whole loop end to end: scaffold a store, get one real output with
   </Step>
 
   <Step title="Get one real output, with no connections">
-    The knowledge library is the fastest thing in px0 that produces something useful, because it touches no external app at all:
+    The brain is the fastest thing in px0 that produces something useful, because it touches no external app at all:
 
     ```bash
-    px0 knowledge add https://example.com/some-post
-    px0 knowledge ask "what did that post say about caching?"
+    px0 brain add https://example.com/some-post
+    px0 brain ask "what did that post say about caching?"
     ```
 
-    `knowledge add` extracts the text locally, files it as Markdown under `knowledge/`, and indexes it. `ask` retrieves the passages that matter and answers from them — add `--sources` when you want to see exactly which passages it used.
+    `brain add` extracts the text locally, files it as Markdown under `brain/`, and indexes it. `ask` retrieves the passages that matter and answers from them — add `--sources` when you want to see exactly which passages it used.
 
-    Keep adding posts, papers, and internal docs as you read them. The library gets more useful the longer you use it. See [The knowledge library](/knowledge/library).
+    Keep adding posts, papers, and internal docs as you read them. The library gets more useful the longer you use it. See [The brain](/brain/library).
   </Step>
 
   <Step title="Build your first workflow">
@@ -85,6 +85,7 @@ This walks the whole loop end to end: scaffold a store, get one real output with
 
     ```bash
     px0 workflows list      # what you can run
+    px0 status              # is anything broken
     px0 runs                # browse past runs interactively
     px0 runs why <run-id>   # how one run reached its result
     ```
@@ -97,15 +98,11 @@ This walks the whole loop end to end: scaffold a store, get one real output with
 
 Generated output is only as good as the conventions behind it. Guidelines are Markdown files describing how you work — how you word a commit message, what your Go reviews check, how blunt your review comments are. A workflow lists the guidelines it needs, and those files are inlined verbatim into the prompt, so output comes back in your voice instead of the model's default.
 
+You never write one from scratch. When `px0 workflows new` finds that a workflow leans on a convention you have no file for, it drafts that guideline from the workflow, shows it to you, and lists it on the workflow so every run inlines it. Editing the draft is how it becomes yours:
+
 ```bash
 px0 guidelines list
-$EDITOR ~/.px0/guidelines/commit-messages.md
-```
-
-px0 notices patterns in what you read and how you edit its output, and proposes guideline updates from them. It never edits your files on its own — you accept or reject each proposal:
-
-```bash
-px0 guidelines review
+px0 guidelines edit commit-messages
 ```
 
 ## Where your data lives
@@ -116,21 +113,22 @@ Your store is `~/.px0`. Set `PX0_HOME` to move it somewhere else.
 | :--- | :--- |
 | `workflows/` | The jobs px0 can run |
 | `guidelines/` | How you work |
-| `knowledge/` | What you have read and kept |
+| `brain/` | What you have read and kept |
 | `output/` | What runs produced |
+| `tools/` | Tools you declared yourself, one TOML file each |
 
 All of it is plain Markdown you can open in any editor. Edit a workflow by hand and the next run picks it up, with no compile step. px0 keeps its own history, so you can always see what changed and undo it:
 
 ```bash
-px0 versions list workflows/friday-pr-digest.md
 px0 changes list
+px0 changes show <change-id>
 ```
 
 ## Where to go next
 
 <CardGroup cols={2}>
   <Card title="Core concepts" icon="diagram-project" href="/get-started/concepts">
-    The vocabulary: store, workflow, tool, guideline, knowledge, run.
+    The vocabulary: store, workflow, tool, guideline, brain, run.
   </Card>
   <Card title="Build a workflow" icon="wand-magic-sparkles" href="/workflows/build">
     Every screen of the builder, and what each decision costs you.

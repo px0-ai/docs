@@ -79,6 +79,14 @@ Every file output is confined to the store's `output/` directory. An absolute pa
   A scheduled workflow must write to a file. There is nowhere for stdout to go at 5pm on a Friday when nobody is watching, so px0 rejects that combination at validation time rather than silently dropping the output.
 </Note>
 
+## Retries
+
+```bash
+px0 workflows run flaky-report --no-retry
+```
+
+A workflow's `retry` frontmatter block, or the store-wide `runs.max_attempts`, controls how many times a failed run is attempted before it is recorded as failed for good. `--no-retry` attempts once regardless — useful while debugging, since a workflow with `retry.max_attempts: 3` would otherwise fail three times before telling you anything.
+
 ## Quiet and JSON output
 
 ```bash
@@ -161,12 +169,11 @@ Useful when a workflow runs inside a script or a CI job:
 | Code | Meaning |
 | :--- | :--- |
 | `0` | Success |
-| `1` | User error — bad arguments, no such workflow, no store, or a failed run |
-| `2` | Connector error — an app is unauthorized or unreachable |
-| `3` | Model error — the harness failed, timed out, or refused |
-| `4` | Integrity error — a `px0 doctor` check failed |
+| `1` | User error — bad arguments, no such workflow, malformed workflow file, or a failed run |
+| `2` | Connector error — an app is unauthorized, unreachable, or a tool call failed |
+| `3` | Model error — the harness failed, timed out, or is missing |
 
-A run that fails for any reason exits `1`, with the reason on stderr and the full detail in the run record. Codes `2` and `3` come from connector and harness failures raised outside a run — during a build, or while setting up a connection — so a script can tell "your Slack consent lapsed" apart from "this workflow is wrong".
+A run that fails for any reason exits `1`, with the reason on stderr and the full detail in the run record. Codes `2` and `3` come from connector and harness failures raised outside the run's own control — during a build, or while setting up a connection — so a script can tell "your Slack consent lapsed" apart from "this workflow is wrong". A store-integrity problem, such as a corrupt version manifest, is what `px0 doctor` and `px0 store verify` catch separately.
 
 ## Timeouts
 
@@ -177,10 +184,15 @@ A run that fails for any reason exits `1`, with the reason on stderr and the ful
 ```bash
 px0 runs                     # browse interactively
 px0 runs list --failed       # just the failures
-px0 runs output <run-id>     # what it produced
+px0 runs list --running      # what is in flight right now
+px0 runs output <run-id>     # what it produced, as recorded
+px0 runs open <run-id>       # what it produced, reading the file as it is now
 px0 runs logs <run-id> -f    # follow the raw log
 px0 runs why <run-id>        # the provenance chain behind the result
 px0 runs rerun <run-id>      # do it again
+px0 runs cancel <run-id>     # stop a run that is taking too long
 ```
+
+`timeout` is the only bound on a run otherwise; `px0 runs cancel` sends `SIGTERM` so the run can finalize its record as failed, or `--force` for `SIGKILL` when it is not responding.
 
 See [Browse runs](/runs/browse) for the interactive view and what each field of a record means.

@@ -38,15 +38,44 @@ Avoid repeating anything already covered in {{prior_digests}}.
 | `version` | int | The file's schema version, managed by px0. |
 | `description` | string | The model's one-line restatement of the job. Shown in listings and pickers. |
 | `request` | string | The sentence you typed, kept verbatim so `px0 workflows edit` can show it back to you. |
-| `trigger` | map | `manual: true` and/or `schedule: "<cron>"`. |
+| `enabled` | bool | `false` parks the workflow: it keeps its file and history, and never fires. Set by `px0 workflows disable`/`enable`. |
+| `trigger` | map | `manual: true`, `schedule: "<cron>"`, and/or `watch: {...}`. See below. |
 | `guidelines` | list | Guideline filenames, inlined verbatim into the prompt. |
 | `inputs` | list | Resolved before the prompt runs. See below. |
 | `tools` | list | What the model may call during the run. |
 | `output` | map | `target: stdout`, or `target: file` with a `path`. |
-| `timeout` | duration | Wall-clock cap on the run. Defaults to `120s`; accepts `ms`, `s`, `m`, `h`. |
+| `timeout` | duration | Wall-clock cap on the run. Defaults to `120s`; accepts `ms`, `s`, `m`, `h`. Overridden for one run by `--timeout`. |
+| `retry` | map | `{max_attempts: N, backoff_seconds: S}`. Each attempt writes its own run record; the cap is 10. |
+| `on_failure` | map | `{notify: desktop\|tool\|none, channel: <tool id>, target: <where>}`. Overrides the `notify.*` config for this workflow alone. |
 | `pipeline` | list | Workflow ids to run in sequence instead of a prompt. See below. |
 
 `description` and `request` are not the same thing, and the distinction matters when you come back to a workflow months later. `request` is your words; `description` is the model's normalization of them.
+
+### Watching instead of scheduling
+
+`trigger.watch` fires on something happening rather than on the clock. px0 polls the named read-only tool at `every` (at least 60s), identifies each item by `key` (or by its own `id`, `url`, or `number` if no key is named), and runs the workflow when something new turns up:
+
+```yaml
+trigger:
+  watch:
+    tool: github.list_my_prs
+    args: {since: "-1d"}
+    key: url
+    every: 30m
+```
+
+The first poll only records a baseline, so adding a watch to a busy source does not immediately fire on everything already there. This is what a local-first tool can do in place of Composio's own event triggers, which need a public endpoint to deliver to — something a laptop does not have.
+
+### Retries and failure notifications
+
+```yaml
+retry: {max_attempts: 3, backoff_seconds: 30}
+on_failure: {notify: tool, channel: slack.post_message, target: "#ops"}
+```
+
+`retry` controls how many times a failed run is attempted before it is recorded as failed for good, and how long to wait between attempts, doubling each time. Each attempt still writes its own run record, so `px0 runs list` shows the failures that led to an eventual success rather than hiding them.
+
+`on_failure` decides how you hear about it: a local desktop notification, a tool call such as `slack.post_message` or `gmail.send_message`, or nothing. A workflow's own `on_failure` block wins over the store-wide `notify.*` config, which is what lets a noisy hourly job stay quiet while a nightly report shouts. See [Configuration](/reference/configuration).
 
 ## Inputs
 
@@ -68,16 +97,16 @@ Each input has an `id` and exactly one of four sources:
     `args` values are themselves templated, so an input can build on an earlier one.
   </Accordion>
 
-  <Accordion title="retrieve — query your knowledge library">
+  <Accordion title="retrieve — query your brain">
     ```yaml
     inputs:
       - id: prior_art
         retrieve: {query: "connection pooling", k: 8}
     ```
 
-    Runs a retrieval query over `knowledge/` and interpolates the matching passages, each prefixed with its `path#anchor` so the model can cite them. `k` defaults to `retrieval.k_default` (5).
+    Runs a retrieval query over `brain/` and interpolates the matching passages, each prefixed with its `path#anchor` so the model can cite them. `k` defaults to `retrieval.k_default` (5).
 
-    Anything under `knowledge/work/` is excluded from this, as it is from every other retrieval px0 performs.
+    Anything under `brain/work/` is excluded from this, as it is from every other retrieval px0 performs.
   </Accordion>
 
   <Accordion title="source — read piped input">
@@ -206,9 +235,23 @@ The daemon survives it too: a file that fails to parse no longer stops the sched
 Editing the file directly is expected and supported. The daemon's nightly pass checkpoints your edits into version history, so they appear alongside px0's own changes:
 
 ```bash
-px0 versions list workflows/friday-pr-digest.md
-px0 versions diff workflows/friday-pr-digest.md 2 3
-px0 versions revert workflows/friday-pr-digest.md --to 2
+px0 changes list --actor user:manual
+px0 changes show <change-id>
+px0 changes revert <change-id>
 ```
 
 The one thing a hand edit cannot do is notice that your new instruction needs a tool the workflow does not have. When a change is substantive rather than cosmetic, `px0 workflows edit` re-derives the tools, inputs, and guidelines from your revised request and keeps them consistent. See [Build a workflow](/workflows/build).
+
+## Managing a workflow
+
+Beyond building and running one, these act on the workflow file itself:
+
+| Command | What it does |
+| :--- | :--- |
+| `px0 workflows list` | Every workflow id with its description. A file that fails to parse is reported on its own line rather than silently omitted. |
+| `px0 workflows show <id>` | Where the file is, what version it is on, and the file itself. `--json` for the full frontmatter and body as one object. |
+| `px0 workflows validate [id]` | Check frontmatter, tools, guidelines, cron, and output target without running anything. Omit the id to check every workflow. Exits `1` if anything is invalid, so it works in a pre-commit hook or CI. |
+| `px0 workflows rm <id>` | Remove a workflow, keeping its history. Removing this way — rather than deleting the file — is what keeps the content in the object store and the removal in `px0 changes list`, so `px0 changes revert` can put it back. |
+| `px0 workflows rename <id> <new-id>` | Rename the file and rewrite the `id` in its frontmatter. |
+| `px0 workflows copy <id> <new-id>` | Fork a workflow that works, instead of describing it again. |
+| `px0 workflows disable <id>` / `enable <id>` | Stop a workflow firing without deleting it, and let it fire again. The schedule stays in the file either way. |

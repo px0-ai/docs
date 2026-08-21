@@ -3,14 +3,16 @@ title: "Tools"
 description: "The two kinds of tool a workflow can call, how read and write access is decided, and how to inspect what is available."
 ---
 
-A tool is how a workflow reaches outside px0 — a GitHub read, a Slack post, a row appended to a sheet. There are two kinds, and they execute identically.
+A tool is how a workflow reaches outside px0 — a GitHub read, a Slack post, a row appended to a sheet, or a file on this machine. There are four kinds, and they execute the same way.
 
 | Kind | Looks like | Where it comes from |
 | :--- | :--- | :--- |
 | **Curated** | `slack.post_message`, `github.get_pr` | Ten hand-written tools with stable argument names |
+| **Local** | `file.read`, `shell.run`, `brain.add` | Reaches this machine directly, never through Composio |
+| **User-declared** | `local.deploy_status` | A TOML file you write in the store's `tools/` folder |
 | **Discovered** | `composio:SLACK_SEND_MESSAGE` | Found by `px0 workflows new` searching Composio's catalogue |
 
-The `composio:` prefix only tells you where the tool came from. Both kinds go through the same execution path, which means authorization-on-demand, retries, and dry-run stubbing behave the same whichever you use.
+The `composio:` prefix only tells you where a discovered tool came from. Every kind goes through the same execution path, which means authorization-on-demand, retries, and dry-run stubbing behave the same whichever you use.
 
 ## Curated tools
 
@@ -36,6 +38,38 @@ These exist because a handful of actions come up in almost every workflow, and a
 Anything in Composio's catalogue — thousands of tools across hundreds of toolkits — is reachable. You do not look them up yourself: `px0 workflows new` writes *searches* (a toolkit plus a capability phrase), Composio returns candidates, and the model picks from what actually came back. Nothing is invented, because a slug that does not appear in the results is discarded.
 
 Once a workflow uses a discovered tool, it is recorded in your store. That has two useful consequences: the tool shows up in `px0 tools list` alongside the curated ones, and the workflow keeps resolving it without another catalogue lookup — so a workflow written today still runs offline tomorrow.
+
+## Local tools
+
+Beyond the apps Composio brokers, a workflow can use what is already on this machine:
+
+| Tool | What it does |
+| :--- | :--- |
+| `file.read`, `file.write`, `file.list` | Read and write files, inside the store and any directory `tools.file_roots` allows |
+| `http.get`, `http.post` | Fetch or post to a URL that is not an app px0 has a connector for |
+| `brain.add` | File something into the brain, so "save what I read" is a workflow |
+| `shell.run` | Run one local command. Off until `tools.allow_shell` is true |
+
+```bash
+px0 config set tools.allow_shell true            # a workflow can then run anything you can
+px0 config set tools.file_roots ~/code/my-repo   # and read files there
+```
+
+`shell.run` is listed by `px0 tools list` even when disabled, so it is discoverable, but it refuses to run until you turn it on — a workflow that can run a shell can do anything you can.
+
+## Tools you declare yourself
+
+Anything else you want a workflow to do, declare it in one TOML file per tool under the store's `tools/` folder:
+
+```toml
+id = "local.deploy_status"
+description = "Print the deploy status for an environment"
+command = ["./scripts/deploy-status.sh", "{env}"]
+params = { env = "str*" }
+is_write = false
+```
+
+It shows up in `px0 tools list` immediately, and `px0 workflows new` can use it. Arguments are substituted into argv, never into a shell, so a value with a semicolon in it stays a value. A malformed file in `tools/` is reported as a warning and skipped, so one bad declaration never hides the rest.
 
 ## Read, write, and destructive
 
@@ -87,6 +121,33 @@ px0 --json tools list gmail
 ```
 
 That returns each tool with its parameters. Required parameters are marked with a trailing `*` and listed first, so the shape of a call is obvious at a glance.
+
+### Search Composio's catalogue directly
+
+```bash
+px0 tools search "create issue"
+px0 tools search "issue" --toolkit linear
+px0 tools search --toolkits              # list toolkits instead of tools
+```
+
+This is how to find out what px0 could reach before describing a job to `px0 workflows new`, which is the only other thing that searches the catalogue. Results are marked `read`, `write`, or `destroy`, from Composio's own hints.
+
+### Call one tool directly
+
+```bash
+px0 tools call github.get_pr --arg url=https://github.com/px0/px0/pull/1
+```
+
+Runs one tool with one set of arguments and prints what comes back — the way to see a tool's real output before it is ever inside a live run. `--arg key=value` is repeatable; a value that parses as JSON is sent as JSON, so `--arg labels='["bug"]'` sends a list. A write tool asks to confirm first, unless `--yes` is given.
+
+### Refresh cached definitions
+
+```bash
+px0 tools refresh
+px0 tools refresh composio:LINEAR_CREATE_ISSUE
+```
+
+A discovered tool's schema is cached in the store so a workflow keeps working offline; this re-reads it from Composio, which is what you want after Composio reshapes or retires a tool. `--forget` drops the cache instead of re-reading it.
 
 ## Use a tool in a workflow
 

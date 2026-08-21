@@ -18,16 +18,15 @@ The store is designed to be a *bare directory*. It works with nothing else insta
 ~/.px0/
 ├── workflows/          the jobs px0 can run
 ├── guidelines/         how you work
-│   └── work/           inlined at run time, never compiled into skill bundles
-├── knowledge/          what you have read and kept
+├── brain/               what you have read and kept
 │   ├── blogs/
 │   ├── docs/
 │   ├── papers/
-│   └── work/           never retrieved, by design
-├── output/             what runs produced
-├── skills/             compiled guideline bundles
-├── config.toml         every setting
-└── .state/             internal: not meant for hand-editing
+│   └── work/            never retrieved, by design
+├── output/              what runs produced
+├── tools/               tools you declared yourself, one TOML file each
+├── config.toml          every setting
+└── .state/              internal: not meant for hand-editing
 ```
 
 | Path | Versioned | Rebuildable |
@@ -35,9 +34,9 @@ The store is designed to be a *bare directory*. It works with nothing else insta
 | `workflows/` | Yes | No — these are yours |
 | `guidelines/` | Yes | No — these are yours |
 | `config.toml` | Yes | Defaults only |
-| `knowledge/` | No | Yes, from source URLs |
+| `brain/` | No | Yes, from source URLs |
 | `output/` | No | Yes, by rerunning |
-| `skills/` | No | Yes, with `px0 skills build` |
+| `tools/` | No | No — these are yours too |
 | `.state/` | n/a | Mostly, but history lives here |
 
 The first three are the ones that would hurt to lose. They are also the smallest — plain Markdown and TOML, easy to back up anywhere.
@@ -46,36 +45,40 @@ The first three are the ones that would hurt to lose. They are also the smallest
 
 You do not need to touch any of this, but knowing what it holds makes `px0 doctor` output legible.
 
-| Path | What it holds |
-| :--- | :--- |
-| `versions/` | Version history: `manifest.sqlite` plus content-addressed blobs under `objects/` |
-| `proposals/` | Pending guideline proposals awaiting your review |
-| `index/` | The retrieval index over `knowledge/` |
-| `ingest/` | Queued ingest jobs, with `failed/` for retired ones |
-| `credentials.toml` | Connector secrets, kept at mode `0600` |
-| `schema` | The store's on-disk schema version |
-| `schedule.json` | The daemon's scheduling state and last-fire records |
-| `lock` | The store-wide lock, held during writes |
-| `update-history.json` | What `px0 update rollback` reads |
-| `update-check.json` | What the weekly update check recorded |
-| `retrieval-consent.json` | Whether you consented to the semantic-search model download |
+| Path | What it holds | Rebuildable |
+| :--- | :--- | :--- |
+| `versions/` | The version manifest (SQLite) and content-addressed blobs — this is the history | No |
+| `index/index.sqlite` | The retrieval index over `brain/` | Yes — `px0 brain reindex` |
+| `ingest/` | Queued playlist ingest jobs, drained by the daemon, with `failed/` for retired ones | Yes |
+| `credentials.toml` | Connector authorizations, kept at mode `0600` | No |
+| `schema` | The store's on-disk schema version | No |
+| `schedule.json` | The daemon's persisted scheduling state | Yes |
+| `update-history.json` | What was installed when, and which migrations ran | No |
+| `update-check.json` | When px0 last checked for an update | Yes |
+| `retrieval-consent.json` | Whether the `qmd` backend's local models were consented to | Yes |
+| `running/` | One file per run in flight, holding its pid so `px0 runs cancel` can signal it | Yes |
+| `catalogue.json` | Composio tool definitions discovered by `px0 workflows new`, so a workflow keeps working offline | Yes — `px0 tools refresh` |
+| `lock` | Process lock, so two px0 runs cannot write at once | Yes |
+
+The retrieval index is derived data and is dropped and rebuilt whenever its schema changes — for instance when the tokenizer or a column changes between releases. `px0 doctor` reports an empty index and names `px0 brain reindex`.
 
 ## How versioning works
 
 px0 keeps its own history rather than relying on git, because a store should not require you to adopt a version-control workflow to keep your notes safe.
 
-Every write to a versioned file records a **change**: an actor (you, or the builder), a timestamp, and the new content of each file involved. A change can span several files — a workflow build that also wrote a guideline is one change, and reverts as one.
+Every write to a versioned file records a **change**: an actor (you, or the builder), a timestamp, and the new content of each file involved. A change can span several files — a workflow build that also wrote a guideline is one change, and reverts as one:
+
+```bash
+px0 changes list --since 7d
+px0 changes show <change-id>
+px0 changes revert <change-id>
+```
 
 Two things follow from that design and are worth knowing:
 
-**Your hand edits are captured, not overwritten.** A run checkpoints the workflow it is about to execute, and the daemon's nightly pass checkpoints everything else. Your editor session shows up in the same history as px0's own changes.
+**Your hand edits are captured, not overwritten.** A run checkpoints the workflow it is about to execute, and the daemon's nightly pass checkpoints everything else. Your editor session shows up in the same history as px0's own changes, under the `user:manual` actor.
 
-**Guideline history is addressable per section.** A guideline heading becomes a claim id (`<path>#<heading-slug>`), so one convention can be traced and reverted without disturbing the rest of the file. See [Provenance and history](/guidelines/provenance).
-
-```bash
-px0 versions list workflows/friday-pr-digest.md
-px0 changes list --since 7d
-```
+**Guideline history is addressable per section.** A guideline heading becomes a claim id (`<path>#<heading-slug>`), so `px0 guidelines log <path>#<anchor>` walks one convention's history without disturbing the rest of the file. See [History](/guidelines/history).
 
 ## Move a store to another machine
 
@@ -83,18 +86,31 @@ px0 changes list --since 7d
 px0 store export ~/px0-backup
 ```
 
-That copies content and version history — workflows, guidelines, knowledge, output, skills, `config.toml`, plus the version manifest, proposals, schema, and schedule state.
+That copies content and version history — workflows, guidelines, brain, output, tools, `config.toml`, plus the parts of `.state/` that matter for continuity: version history, the schema marker, and the schedule.
 
-**Secrets are stripped, in both places they live.** `.state/credentials.toml` is excluded, `config.toml` is exported with `connectors.composio_api_key` blanked, and `config.toml`'s version history is dropped from the exported manifest — otherwise the raw key would still sit in the history blobs, one `px0 versions show` away. Blobs are content-addressed and shared, so only those nothing else references are removed.
+**Secrets are stripped, in both places they live.** `.state/credentials.toml` is excluded, `config.toml` is exported with `connectors.composio_api_key` blanked, and `config.toml`'s version history is dropped from the exported manifest — otherwise the raw key would still sit in the history blobs, one command away. Blobs are content-addressed and shared, so only those nothing else references are removed. That is what makes the export safe to move over a network or drop into a backup.
 
-That is what makes the export safe to move over a network or drop into a backup. On the new machine you set the Composio key once:
+The retrieval index is not exported; run `px0 brain reindex` after importing.
+
+Load one back on the new machine:
+
+```bash
+px0 store import ~/px0-backup
+px0 store import ~/px0-backup --merge    # add what is missing, keep what is already here
+px0 store import ~/px0-backup --force    # let the import win on a collision
+```
+
+Without `--merge` or `--force`, importing into an existing store stops rather than silently overwriting workflows you are running. An export contains no credentials, so importing never blanks the API key on the machine you are importing into — a `config.toml` already present is kept, and the Composio key is set separately:
 
 ```bash
 px0 config composio <your-api-key>
+px0 store verify
 px0 doctor
 ```
 
-One consequence worth knowing: because config history is dropped, an exported store has no `px0 versions list config.toml`. Everything else keeps its full history.
+`px0 store verify` checks that what arrived hangs together — workflows parse, guideline references resolve, version blobs exist, and any user-declared tool is well-formed — separate from `px0 doctor`, which asks whether the *install* is wired up rather than the store's contents.
+
+One consequence worth knowing: because config history is dropped on export, an imported store has no history for `config.toml` before the import. Everything else keeps its full history.
 
 To move the store rather than copy it, move the directory and point `PX0_HOME` at the new location. Nothing inside the store depends on its absolute path.
 
@@ -116,13 +132,13 @@ Also avoid running the daemon on two machines against the same synced store. Bot
 
 ## Backing up
 
-The high-value, low-cost backup is the three versioned paths plus history:
+The high-value, low-cost backup is the versioned paths plus history:
 
 ```bash
 px0 store export ~/backups/px0-$(date +%F)
 ```
 
-`knowledge/` is rebuildable from source URLs and `output/` from reruns, so if you want a small backup, those are the two you can drop.
+`brain/` is rebuildable from source URLs and `output/` from reruns, so if you want a small backup, those are the two you can drop.
 
 ## Deleting a store
 

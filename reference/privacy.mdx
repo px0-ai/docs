@@ -3,7 +3,7 @@ title: "What leaves your machine"
 description: "px0 is local-first, not offline. Here is exactly which data goes where, and what you can keep from travelling at all."
 ---
 
-px0 is local-first: your workflows, guidelines, knowledge, and run history are files on your disk, and there is no px0 server, account, or hosted state. But local-first is not the same as offline, and "your data is safe" is not a useful thing for documentation to say without specifics.
+px0 is local-first: your workflows, guidelines, brain, and run history are files on your disk, and there is no px0 server, account, or hosted state. But local-first is not the same as offline, and "your data is safe" is not a useful thing for documentation to say without specifics.
 
 So here is every place data goes, and what you control.
 
@@ -14,8 +14,9 @@ px0 has no telemetry, no analytics, and no crash reporting. It does not phone ho
 | Destination | When | What it carries |
 | :--- | :--- | :--- |
 | `pypi.org` | The weekly update check, `px0 update`, `px0 update --check` | Nothing about you — it reads the published version list |
-| A URL you ingest | `px0 knowledge add <url>` | A plain fetch of that URL |
+| A URL you ingest | `px0 brain add <url>` | A plain fetch of that URL |
 | `youtube.com` | Ingesting a video or playlist | The URL you gave it, to fetch metadata and transcripts |
+| A URL a workflow's `http.get`/`http.post` tool calls | A workflow that names those tools | Whatever the workflow sends, directly — not through Composio |
 
 Turn the update check off entirely if you would rather it never ran:
 
@@ -27,13 +28,13 @@ px0 config set update.check false
 
 This is the significant one, and it is worth being precise about.
 
-px0 has no model of its own. Every workflow run, every `px0 knowledge ask`, and every model pass inside `px0 workflows new` shells out to your coding agent CLI — `claude -p` by default — which sends the prompt to whichever provider that CLI is signed into.
+px0 has no model of its own. Every workflow run, every `px0 brain ask`, and every model pass inside `px0 workflows new` shells out to your coding agent CLI — `claude -p` by default — which sends the prompt to whichever provider that CLI is signed into.
 
 What is in that prompt:
 
 - The workflow body, after templating.
 - Every guideline file the workflow lists, inlined verbatim.
-- Every resolved input: tool results, retrieved knowledge passages, piped stdin.
+- Every resolved input: tool results, retrieved brain passages, piped stdin.
 
 In other words, the prompt is the union of the context the workflow gathered. If a workflow reads your calendar and your inbox, that content is in the prompt.
 
@@ -50,13 +51,13 @@ px0 runs logs <run-id>   # the raw log
 
 That is the ground truth. If you are unsure whether something reached the model, read the prompt rather than reasoning about it.
 
-## Tool calls go through Composio
+## Most tool calls go through Composio
 
-Every tool routes through [Composio](https://composio.dev), including the curated GitHub tools — those use Composio's authenticated proxy rather than calling GitHub directly. So a tool call carries its arguments to Composio, and Composio carries them to the app.
+Curated, discovered, and user-declared toolkit calls route through [Composio](https://composio.dev), including the curated GitHub tools — those use Composio's authenticated proxy rather than calling GitHub directly. So a tool call carries its arguments to Composio, and Composio carries them to the app.
 
 What that means in practice:
 
-- **App credentials never touch your disk.** px0 holds a Composio API key and connected-account ids, not your Slack or Gmail tokens. Revoking access happens in Composio or at the provider.
+- **App credentials never touch your disk.** px0 holds a Composio API key and connected-account ids, not your Slack or Gmail tokens. Revoking access happens in Composio or at the provider, or with `px0 tools disconnect`.
 - **Authorization is per app, and you drive it.** Nothing is connected until you complete a browser consent, and px0 only ever prepares authorizations for apps a workflow actually needs.
 - **Write tools are surfaced everywhere.** The builder names them before generating a workflow, `--dry-run` stubs them, and `px0 runs` marks any run that used one — so "what has px0 sent on my behalf?" is an answerable question.
 
@@ -65,25 +66,28 @@ px0 tools list --status     # what is authorized right now
 px0 runs list              # rows marked [write] touched the outside world
 ```
 
+## Local tools skip Composio entirely
+
+`file.read`, `file.write`, `file.list`, `brain.add`, and `shell.run` run directly on this machine and never touch Composio at all. `http.get` and `http.post` reach whatever URL a workflow gives them directly, the same way `px0 brain add` does. `shell.run` stays off until `tools.allow_shell` is explicitly set, and a workflow that can run a shell can do anything you can — treat enabling it the way you would treat handing a script your own shell.
+
 ## What stays local, always
 
 | Path | Guarantee |
 | :--- | :--- |
-| `knowledge/work/` | Never retrieved by `search`, `ask`, or a workflow `retrieve:` input, on either backend. It therefore never enters a prompt. |
-| `guidelines/work/` | Never compiled into a skill bundle, so it cannot be carried into a repository by your coding agent. Still inlined into px0 prompts when a workflow lists it. |
+| `brain/work/` | Never retrieved by `search`, `ask`, or a workflow `retrieve:` input, on either backend. It therefore never enters a prompt. The folder name is `brain.private_folder` and is configurable. |
 | `.state/credentials.toml` | Local file, mode `0600`, checked on every `px0 doctor`. Excluded from `px0 store export`. |
 | An exported store | Carries no API key: `config.toml` is exported with the Composio key blanked, and its version history is dropped so the key is not recoverable from the history blobs either. |
 | Run records and logs | Written under `logs.path` on your machine. Nothing is uploaded. |
 
 <Warning>
-  `guidelines/work/` and `knowledge/work/` protect different things. Work *knowledge* never reaches a prompt at all. Work *guidelines* do reach prompts — they just never leave px0 as a compiled bundle. If a convention itself must not go to a model provider, do not put it in a guideline a workflow lists.
+  `brain/work/` is a hard exclusion, not a ranking penalty. Files under it are never retrieved and therefore never inlined into a prompt that goes to your model backend. It is the right place for material you are willing to keep locally but not willing to send anywhere — the folder is configurable with `brain.private_folder`, including turning the exclusion off entirely.
 </Warning>
 
 ## Choosing how much travels
 
 A few practical levers, in rough order of how much they buy you:
 
-- **Keep sensitive material in `knowledge/work/`.** A hard exclusion is easier to reason about than a careful workflow.
+- **Keep sensitive material in `brain/work/`.** A hard exclusion is easier to reason about than a careful workflow.
 - **Prefer read tools and dry runs while iterating.** `--dry-run` resolves real inputs but executes nothing outward, so you can inspect the prompt before anything is sent.
 - **Use the local retrieval backend.** `retrieval.backend = local` is keyword search inside px0, with no model download and no embedding calls. The `qmd` backend runs its models locally too, so neither backend sends your library anywhere.
 - **Scope the Composio key.** It needs `auth_configs` write access to prepare authorizations, but you decide which apps you ever consent to.

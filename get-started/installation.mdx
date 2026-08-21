@@ -10,12 +10,12 @@ px0 is a Python CLI distributed on PyPI and installed with pipx. It writes every
 - **Python 3.11 or newer.**
 - **A coding agent CLI** that px0 uses as its model backend: `claude`, `gemini`, `pi`, or `opencode`. px0 reuses that CLI's own login, so pick whichever one you already sign into.
 - **A [Composio](https://composio.dev) API key**, for workflows that reach other apps. You can skip this and add it later.
-- **Node.js 20 or newer**, only if you want [agent skills](/skills/agent-skills) or the [qmd retrieval backend](/knowledge/retrieval).
+- **Node.js 20 or newer**, only if you want the [qmd retrieval backend](/brain/retrieval).
 
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/px0-ai/px0/master/install.sh | sh
+curl -fsSL https://px0.ai/install.sh | sh
 ```
 
 The installer bootstraps pipx if it is missing, installs px0 from PyPI, runs `px0 init`, and offers to install the scheduler daemon.
@@ -48,7 +48,7 @@ pytest
 px0 init
 ```
 
-This scaffolds `~/.px0` (or `$PX0_HOME` if set): `workflows/`, `guidelines/`, `knowledge/`, `output/`, plus `config.toml` and a set of starter guideline files you can read, edit, or delete like any other file. Nothing here is hidden or binary.
+This scaffolds `~/.px0` (or `$PX0_HOME` if set): `workflows/`, `guidelines/`, `brain/`, `output/`, `tools/`, plus `config.toml` and a set of starter guideline files you can read, edit, or delete like any other file. Nothing here is hidden or binary.
 
 `init` also asks for your Composio API key, which is what px0 uses to reach Gmail, Slack, GitHub, Calendar, and every other toolkit. Pass it directly, or skip it and set it later:
 
@@ -102,13 +102,15 @@ Every line should be a `✓`. `doctor` exits `0` when everything passes and `4` 
 ✓ credentials              mode 0o600
 ✓ versions                 manifest opens cleanly
 ✓ locks                    no lock file yet
-✓ schema                   store schema 1, binary schema 1
+✓ schema                   store schema 2, binary schema 2
 ✓ connections              0 connection(s) configured
-✓ unreferenced_guidelines  6 unreferenced file(s) -- see `px0 guidelines consolidate`
+✓ workflows                every workflow file parses
+✓ unreferenced_guidelines  6 unreferenced file(s)
 ✓ update                   0.1.0 (no update check recorded yet)
 ✓ daemon                   not running
 ✓ harness                  harness responded
-✓ index                    0 knowledge files, 0 indexed passages
+✓ index                    0 brain files, 0 indexed passages
+✓ private_folder           nothing held back
 ```
 
 The starter guidelines are reported as unreferenced because no workflow lists them yet — that is expected on a new store, not a fault. `harness  harness responded` means px0 actually invoked your coding agent CLI and got something back; if that line fails, fix it before anything else, because every workflow depends on it.
@@ -151,3 +153,5 @@ To remove all local configurations and history, run:
     What lives in the store, and why.
   </Card>
 </CardGroup>
+
+Once you have a workflow or two, `px0 status` is the fastest way to check whether anything needs attention — the daemon, recent failures, and the install itself, in one screen with no network call. See [Status](/reference/status).

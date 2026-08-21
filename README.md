@@ -1,6 +1,6 @@
 # px[0] Docs
 
-The documentation site for [px0](https://px0.ai), an open-source utility to build custom agents and workflows using natural language, then run them on a schedule. Published at [docs.px0.ai](https://docs.px0.ai).
+The documentation site for [px0](https://px0.ai), an open-source CLI that automates your recurring chores in plain English, completely local. Published at [docs.px0.ai](https://docs.px0.ai).
 
 The product source of truth is the [px0 repository](https://github.com/px0-ai/px0).
 
@@ -31,11 +31,10 @@ npm run format         # format MDX files
 | `get-started/` | Installation, quickstart, core concepts |
 | `workflows/` | Building, running, the file format, scheduling |
 | `tools/` | Connections and the tool catalogue |
-| `knowledge/` | The library, search and ask, retrieval backends |
-| `guidelines/` | Guidelines, proposals, provenance and history |
+| `brain/` | The library, search and ask, retrieval backends |
+| `guidelines/` | Guidelines and history |
 | `runs/` | Browsing run records |
-| `skills/` | Agent skills and compiled guideline bundles |
-| `reference/` | CLI, configuration, store, troubleshooting, updating |
+| `reference/` | CLI, configuration, store, status, MCP, privacy, troubleshooting, updating |
 
 Conventions for writing these pages — terminology, voice, and accuracy rules — are in [AGENTS.md](AGENTS.md).
 

@@ -3,7 +3,15 @@ title: "Connections"
 description: "One Composio API key is the whole setup. After that, apps authorize themselves the first time a workflow needs them."
 ---
 
-A workflow reaches outside px0 through a *tool*, and every tool routes through [Composio](https://composio.dev). There is no per-app connect command in px0, and that is a deliberate choice: you set one API key, and after that **apps authorize themselves**. The first time a workflow needs Gmail, px0 prepares Gmail's authorization and hands you the URL to approve.
+A workflow reaches outside px0 through a *tool*, and most tools route through [Composio](https://composio.dev). You set one API key, and after that **apps authorize themselves** by default: the first time a workflow needs Gmail, px0 prepares Gmail's authorization and hands you the URL to approve.
+
+`px0 tools connect <app>` does the same thing on purpose, ahead of time, when you would rather authorize deliberately than wait for the first run to ask:
+
+```bash
+px0 tools connect linear
+```
+
+px0 prints a URL. Open it, complete the consent, and confirm with `px0 tools list --status`. Pass `--reconnect` to drop an existing authorization first — the fix for a token that has expired or been revoked, since without it an app already recorded as authorized just reports that and stops.
 
 You never have to know which services exist, and you never connect a service you turn out not to need.
 
@@ -46,7 +54,7 @@ If your network runs a TLS-inspecting proxy — Zscaler, Netskope, and friends �
 
 If none of the bundles it knows about work, it tells you to point `SSL_CERT_FILE` at your corporate root and stops. It never silently disables verification — a tool that quietly turns off certificate checking on a corporate network is doing you harm, not a favour. An explicit `SSL_CERT_FILE` always wins over the stored bundle.
 
-Once stored, that bundle is used for **every** outbound request px0 makes, not only Composio ones. A `px0 knowledge add` against an internal wiki behind the same proxy works without further configuration, and if you ever need to set it by hand:
+Once stored, that bundle is used for **every** outbound request px0 makes, not only Composio ones. A `px0 brain add` against an internal wiki behind the same proxy works without further configuration, and if you ever need to set it by hand:
 
 ```bash
 px0 config set connectors.ca_bundle /path/to/ca-bundle.pem
@@ -86,9 +94,9 @@ px0 tools list --status
 ```
   read   calendar.list_events          List calendar events in a window          not authorized
   write  github.create_review_comment  Post a review comment on a PR             not authorized
-  read   gmail.get_message             Fetch one gmail message                   ready
-  read   gmail.search_messages         Search gmail messages                     ready
-  write  gmail.send_message            Send a gmail message                      ready
+  read   gmail.get_message             Fetch one gmail message                   connected
+  read   gmail.search_messages         Search gmail messages                     connected
+  write  gmail.send_message            Send a gmail message                      connected
   write  slack.post_message            Post a message to a slack channel         consent pending
 
 3 of 10 tools can change things outside px0
@@ -99,13 +107,20 @@ prints its authorization URL on the first run
 
 | Status | Meaning | What to do |
 | :--- | :--- | :--- |
-| `ready` | Authorized and usable | Nothing |
-| `not authorized` | Never approved | Nothing — the next run that needs it offers a link |
+| `connected` | Authorized and usable | Nothing |
+| `not authorized` | Never approved | Nothing — the next run that needs it offers a link, or run `px0 tools connect <app>` |
 | `consent pending` | A link was opened but the browser consent was not finished | Finish the consent in the tab you already have open |
-| `authorization failed` | Composio rejected it | Re-run the workflow for a fresh link |
-| `authorization gone` | px0 holds an id Composio no longer knows about | Re-run the workflow for a fresh link |
+| `authorization failed` | Composio rejected it | `px0 tools connect <app> --reconnect` for a fresh link |
 
 `--status` costs one API call per provider, which is why it is opt-in rather than the default. See [Tools](/tools/catalogue) for the rest of what that listing shows.
+
+To revoke an app entirely — deleted at Composio, and removed from the store's credentials:
+
+```bash
+px0 tools disconnect slack
+```
+
+Workflows that use the app are named first, since they stop working. If Composio refuses the delete, the local record is still removed and px0 says so — the account it pointed at is unusable either way.
 
 ## 4. When an authorization lapses
 
