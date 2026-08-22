@@ -3,19 +3,19 @@ title: "Introduction"
 description: "px0 automates your recurring chores in plain English, completely local. Everything it knows lives in plain Markdown files on your machine."
 ---
 
-Automate your recurring chores in plain English, completely local.
+An agent that works the way you work.
 
-Describe a recurring job in plain English and px0 writes it as a workflow you can run, schedule, and edit.
+You already have tools, habits, and conventions. px0 automates them. You describe a recurring chore in plain English, and px0 writes it as a workflow you can run, schedule, and edit directly from your terminal. Everything stays on your machine. Your workflows, your notes, and your conventions are plain Markdown files in a directory you own.
 
-Everything happens on your machine. Your workflows, your notes, and your conventions are plain Markdown files in one directory you own. There is no server, no account, and no hosted state to sign up for.
-
-Workflows do not stop at your laptop, though. Through [Composio](https://composio.dev), a workflow can reach hundreds of apps you already use: GitHub, Slack, Gmail, Google Calendar, Notion, Linear, Jira, Google Sheets, Salesforce, Stripe, Zendesk, Sentry, and over a thousand more. It can also reach this machine — read a file, run the script that already does the job, fetch a URL, file something into your brain.
+There is no server, no account, and no state stored in the cloud. But your workflows don't stop at your laptop. Through [Composio](https://composio.dev), px0 reaches the apps you already use: GitHub, Slack, Gmail, Notion, Linear, Jira, and over a thousand more.
 
 ```bash
-px0 workflows new "every friday at 5pm, summarize the github pull requests I reviewed this week and post it to #eng-standup"
+px0 workflows new
 ```
 
-px0 asks what is genuinely ambiguous, finds the tools the job needs, shows you the list before authorizing anything, and writes the workflow file.
+That opens an interview - one question at a time, until px0 has the job, what it reads, where the result goes, when it runs, and what makes the output right. It writes the request back for you to approve or reword before anything is built. Enter on a blank line ends the questions early.
+
+px0 then asks about anything still genuinely ambiguous, finds the tools the job needs, and shows you the list before authorizing anything. Tools that can post or send get called out, so you can drop the ones you did not ask for. Then it writes the workflow file and prints its id, which you can override when it asks.
 
 ## What px0 is for
 
@@ -44,13 +44,13 @@ Each of these is one sentence you type into `px0 workflows new`, and each become
 ## How it fits together
 
 - **Workflows** are the unit of work: Markdown files with YAML frontmatter, generated from your description and editable by hand.
-- **Tools** are how a workflow reaches outside px0. Most route through Composio, and apps authorize themselves the first time a workflow needs one; a few reach this machine directly — a file, a shell command, a URL.
+- **Tools** are how a workflow reaches outside px0. Most route through Composio, and apps authorize themselves the first time a workflow needs one; a few reach this machine directly - a file, a shell command, a URL.
 - **Guidelines** are your conventions, inlined verbatim into prompts so output comes back in your voice.
 - **Brain** is the library of what you have read and kept, searchable and askable.
 - **Runs** are the record of everything px0 did, so any output can be traced back to its inputs.
 
 <Note>
-  px0 has no model backend of its own. It shells out to a coding agent CLI you already sign into — `claude`, `gemini`, `pi`, or `opencode` — and reuses that CLI's own login, model choice, and rate limits. [What leaves your machine](/reference/privacy) spells out exactly what that means for your data.
+  px0 has no model backend of its own. It shells out to a coding agent CLI you already sign into - `claude`, `gemini`, `pi`, or `opencode` - and reuses that CLI's own login, model choice, and rate limits. [What leaves your machine](/reference/privacy) spells out exactly what that means for your data.
 </Note>
 
 ## Start here

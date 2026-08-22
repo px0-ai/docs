@@ -5,14 +5,14 @@ description: "Write your conventions down once, and every workflow that needs th
 
 Guidelines are prescriptive prose about how you work: how commit messages are worded, what a Go review checks, how blunt your review comments are, what a summary should sound like.
 
-They exist to solve a specific problem. A model's default voice is not yours, and restating your conventions inside every workflow does not scale — you end up with the same paragraph copy-pasted into six prompts, drifting apart as you edit them one at a time. A guideline is that paragraph, written once, in a file.
+They exist to solve a specific problem. A model's default voice is not yours, and restating your conventions inside every workflow does not scale - you end up with the same paragraph copy-pasted into six prompts, drifting apart as you edit them one at a time. A guideline is that paragraph, written once, in a file.
 
 ```bash
 px0 guidelines list
 px0 guidelines edit commit-messages
 ```
 
-`px0 init` scaffolds a set of starter guidelines. Read them, rewrite them, or delete them — they are ordinary Markdown files, and they are yours. `px0 guidelines edit` opens one in `$VISUAL`, `$EDITOR`, or the first of `nano`, `vim`, `vi` that exists; what you save is recorded as a change. `px0 guidelines show <name>` prints one verbatim — the same text a workflow inlines.
+`px0 init` scaffolds a set of starter guidelines. Read them, rewrite them, or delete them - they are ordinary Markdown files, and they are yours. `px0 guidelines edit` opens one in `$VISUAL`, `$EDITOR`, or the first of `nano`, `vim`, `vi` that exists; what you save is recorded as a change. `px0 guidelines show <name>` prints one verbatim - the same text a workflow inlines.
 
 ## How a workflow uses them
 
@@ -22,11 +22,11 @@ A workflow names the guideline files it needs in its frontmatter:
 guidelines: [commit-messages.md, pr-comment-style.md]
 ```
 
-At run time those files are read and inlined **verbatim** into the prompt — at an explicit `{{guidelines}}` placeholder if the body has one, otherwise prepended before it.
+At run time those files are read and inlined **verbatim** into the prompt - at an explicit `{{guidelines}}` placeholder if the body has one, otherwise prepended before it.
 
 Two design choices here are worth understanding, because they explain behaviour you will notice:
 
-**Guidelines are matched by name, never by similarity.** Unlike `brain/`, which is retrieved, a guideline is either in the list or it is not. A convention you rely on should not depend on a search hit — "sometimes it follows my commit style" is worse than useless.
+**Guidelines are matched by name, never by similarity.** Unlike `brain/`, which is retrieved, a guideline is either in the list or it is not. A convention you rely on should not depend on a search hit - "sometimes it follows my commit style" is worse than useless.
 
 **Which also means an irrelevant guideline actively hurts.** Since the whole file is inlined, an unrelated guideline costs tokens and misleads the model. This is why the builder attaches a guideline only when it genuinely matches the task: a commit-message workflow gets `commit-messages.md`, a workflow about haikus gets none.
 
@@ -44,7 +44,7 @@ Guidelines work best when they read like instructions to a new colleague who is 
 
 ## Guidelines px0 offers to write for you
 
-Near the end of a workflow build, px0 asks itself whether the job depends on a convention it cannot guess — the voice of a public comment, what counts as worth flagging in a review — and no file in `guidelines/` covers it. When it does, px0 drafts that guideline from the workflow itself and offers it:
+Near the end of a workflow build, px0 asks itself whether the job depends on a convention it cannot guess - the voice of a public comment, what counts as worth flagging in a review - and no file in `guidelines/` covers it. When it does, px0 drafts that guideline from the workflow itself and offers it:
 
 ```
 › guideline: Review rubric
@@ -57,9 +57,9 @@ Near the end of a workflow build, px0 asks itself whether the job depends on a c
 › Keep it? [Y/again/n]
 ```
 
-`again` redraws it, `n` skips it, anything else saves it. What gets saved is an ordinary guideline file with version history from v1, added to that workflow's `guidelines:` list — so `px0 guidelines log` works on it from day one.
+`again` redraws it, `n` skips it, anything else saves it. What gets saved is an ordinary guideline file with version history from v1, added to that workflow's `guidelines:` list - so `px0 guidelines log` works on it from day one.
 
-This is the only way a guideline gets created — there is no `px0 guidelines new`. Asking someone to compose a convention from a blank page is the step that stopped guidelines from being written at all, so the build drafts a defensible version and leaves editing to you. Nothing is proposed for a workflow that already says what to do, and nothing on a topic you already have a guideline for. Skipped entirely under `--yes`: there is nobody to show a draft to, and a convention nobody saw should not land in the store. See [Build a workflow](/workflows/build).
+This is the only way a guideline gets created - there is no `px0 guidelines new`. Asking someone to compose a convention from a blank page is the step that stopped guidelines from being written at all, so the build drafts a defensible version and leaves editing to you. Nothing is proposed for a workflow that already says what to do, and nothing on a topic you already have a guideline for. Skipped entirely under `--yes`: there is nobody to show a draft to, and a convention nobody saw should not land in the store. See [Build a workflow](/workflows/build).
 
 ## Removing a guideline
 

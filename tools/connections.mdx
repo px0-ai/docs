@@ -11,7 +11,7 @@ A workflow reaches outside px0 through a *tool*, and most tools route through [C
 px0 tools connect linear
 ```
 
-px0 prints a URL. Open it, complete the consent, and confirm with `px0 tools list --status`. Pass `--reconnect` to drop an existing authorization first — the fix for a token that has expired or been revoked, since without it an app already recorded as authorized just reports that and stops.
+px0 prints a URL. Open it, complete the consent, and confirm with `px0 tools list --status`. Pass `--reconnect` to drop an existing authorization first - the fix for a token that has expired or been revoked, since without it an app already recorded as authorized just reports that and stops.
 
 You never have to know which services exist, and you never connect a service you turn out not to need.
 
@@ -45,14 +45,14 @@ In `config.toml` under `connectors.composio_api_key`, and in `.state/credentials
 
 ### Behind a TLS-intercepting proxy
 
-If your network runs a TLS-inspecting proxy — Zscaler, Netskope, and friends — setting the key detects it, because the certificate chain will not validate against the public CA bundle Python ships with. px0 looks for a system CA bundle that *does* trust the interceptor, retries with it, and records it as `connectors.ca_bundle` so later runs reuse it:
+If your network runs a TLS-inspecting proxy - Zscaler, Netskope, and friends - setting the key detects it, because the certificate chain will not validate against the public CA bundle Python ships with. px0 looks for a system CA bundle that *does* trust the interceptor, retries with it, and records it as `connectors.ca_bundle` so later runs reuse it:
 
 ```
 · TLS is intercepted on this network  verifying against /opt/homebrew/etc/ca-certificates/cert.pem
 ✓ Composio API key stored
 ```
 
-If none of the bundles it knows about work, it tells you to point `SSL_CERT_FILE` at your corporate root and stops. It never silently disables verification — a tool that quietly turns off certificate checking on a corporate network is doing you harm, not a favour. An explicit `SSL_CERT_FILE` always wins over the stored bundle.
+If none of the bundles it knows about work, it tells you to point `SSL_CERT_FILE` at your corporate root and stops. It never silently disables verification - a tool that quietly turns off certificate checking on a corporate network is doing you harm, not a favour. An explicit `SSL_CERT_FILE` always wins over the stored bundle.
 
 Once stored, that bundle is used for **every** outbound request px0 makes, not only Composio ones. A `px0 brain add` against an internal wiki behind the same proxy works without further configuration, and if you ever need to set it by hand:
 
@@ -83,7 +83,7 @@ Two properties are worth knowing:
 - **Minting a URL grants nothing.** Access happens only when a human consents in the browser. px0 preparing a link gives it no access by itself.
 - **App credentials never touch your disk.** px0 holds a Composio API key and connected-account ids, not your Slack or Gmail tokens. See [What leaves your machine](/reference/privacy).
 
-If an authorization later breaks — revoked in the provider, deleted in Composio — the next run that needs it offers a fresh link. There is nothing to remove or reset by hand.
+If an authorization later breaks - revoked in the provider, deleted in Composio - the next run that needs it offers a fresh link. There is nothing to remove or reset by hand.
 
 ## 3. What is ready, and what is not
 
@@ -108,19 +108,19 @@ prints its authorization URL on the first run
 | Status | Meaning | What to do |
 | :--- | :--- | :--- |
 | `connected` | Authorized and usable | Nothing |
-| `not authorized` | Never approved | Nothing — the next run that needs it offers a link, or run `px0 tools connect <app>` |
+| `not authorized` | Never approved | Nothing - the next run that needs it offers a link, or run `px0 tools connect <app>` |
 | `consent pending` | A link was opened but the browser consent was not finished | Finish the consent in the tab you already have open |
 | `authorization failed` | Composio rejected it | `px0 tools connect <app> --reconnect` for a fresh link |
 
 `--status` costs one API call per provider, which is why it is opt-in rather than the default. See [Tools](/tools/catalogue) for the rest of what that listing shows.
 
-To revoke an app entirely — deleted at Composio, and removed from the store's credentials:
+To revoke an app entirely - deleted at Composio, and removed from the store's credentials:
 
 ```bash
 px0 tools disconnect slack
 ```
 
-Workflows that use the app are named first, since they stop working. If Composio refuses the delete, the local record is still removed and px0 says so — the account it pointed at is unusable either way.
+Workflows that use the app are named first, since they stop working. If Composio refuses the delete, the local record is still removed and px0 says so - the account it pointed at is unusable either way.
 
 ## 4. When an authorization lapses
 
@@ -146,7 +146,7 @@ slack is not connected yet. Authorize it by opening:
   https://backend.composio.dev/s/...
 ```
 
-Transient failures — network blips, Composio 5xx responses — are retried with exponential backoff per `connectors.retries` (default `3`) before the run gives up, so a momentary outage does not fail a scheduled workflow.
+Transient failures - network blips, Composio 5xx responses - are retried with exponential backoff per `connectors.retries` (default `3`) before the run gives up, so a momentary outage does not fail a scheduled workflow.
 
 ## Next steps
 

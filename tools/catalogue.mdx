@@ -3,7 +3,7 @@ title: "Tools"
 description: "The two kinds of tool a workflow can call, how read and write access is decided, and how to inspect what is available."
 ---
 
-A tool is how a workflow reaches outside px0 — a GitHub read, a Slack post, a row appended to a sheet, or a file on this machine. There are four kinds, and they execute the same way.
+A tool is how a workflow reaches outside px0 - a GitHub read, a Slack post, a row appended to a sheet, or a file on this machine. There are four kinds, and they execute the same way.
 
 | Kind | Looks like | Where it comes from |
 | :--- | :--- | :--- |
@@ -35,9 +35,9 @@ These exist because a handful of actions come up in almost every workflow, and a
 
 ## Discovered tools
 
-Anything in Composio's catalogue — thousands of tools across hundreds of toolkits — is reachable. You do not look them up yourself: `px0 workflows new` writes *searches* (a toolkit plus a capability phrase), Composio returns candidates, and the model picks from what actually came back. Nothing is invented, because a slug that does not appear in the results is discarded.
+Anything in Composio's catalogue - thousands of tools across hundreds of toolkits - is reachable. You do not look them up yourself: `px0 workflows new` writes *searches* (a toolkit plus a capability phrase), Composio returns candidates, and the model picks from what actually came back. Nothing is invented, because a slug that does not appear in the results is discarded.
 
-Once a workflow uses a discovered tool, it is recorded in your store. That has two useful consequences: the tool shows up in `px0 tools list` alongside the curated ones, and the workflow keeps resolving it without another catalogue lookup — so a workflow written today still runs offline tomorrow.
+Once a workflow uses a discovered tool, it is recorded in your store. That has two useful consequences: the tool shows up in `px0 tools list` alongside the curated ones, and the workflow keeps resolving it without another catalogue lookup - so a workflow written today still runs offline tomorrow.
 
 ## Local tools
 
@@ -55,7 +55,7 @@ px0 config set tools.allow_shell true            # a workflow can then run anyth
 px0 config set tools.file_roots ~/code/my-repo   # and read files there
 ```
 
-`shell.run` is listed by `px0 tools list` even when disabled, so it is discoverable, but it refuses to run until you turn it on — a workflow that can run a shell can do anything you can.
+`shell.run` is listed by `px0 tools list` even when disabled, so it is discoverable, but it refuses to run until you turn it on - a workflow that can run a shell can do anything you can.
 
 ## Tools you declare yourself
 
@@ -138,7 +138,7 @@ This is how to find out what px0 could reach before describing a job to `px0 wor
 px0 tools call github.get_pr --arg url=https://github.com/px0/px0/pull/1
 ```
 
-Runs one tool with one set of arguments and prints what comes back — the way to see a tool's real output before it is ever inside a live run. `--arg key=value` is repeatable; a value that parses as JSON is sent as JSON, so `--arg labels='["bug"]'` sends a list. A write tool asks to confirm first, unless `--yes` is given.
+Runs one tool with one set of arguments and prints what comes back - the way to see a tool's real output before it is ever inside a live run. `--arg key=value` is repeatable; a value that parses as JSON is sent as JSON, so `--arg labels='["bug"]'` sends a list. A write tool asks to confirm first, unless `--yes` is given.
 
 ### Refresh cached definitions
 
@@ -151,7 +151,7 @@ A discovered tool's schema is cached in the store so a workflow keeps working of
 
 ## Use a tool in a workflow
 
-Nothing special is required — name it in the frontmatter and the runner takes care of both authorization and, if needed, asking you to authorize:
+Nothing special is required - name it in the frontmatter and the runner takes care of both authorization and, if needed, asking you to authorize:
 
 ```yaml
 ---

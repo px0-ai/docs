@@ -24,10 +24,10 @@ Both work at the root (`px0 --json runs list`), and the subcommands that support
 | Code | Meaning |
 | :--- | :--- |
 | `0` | Success |
-| `1` | User error — bad input, missing file, unknown id, failed validation |
-| `2` | Connector error — an external app call failed or is not authorized |
-| `3` | Model error — the coding-agent harness failed, timed out, or is missing |
-| `4` | Integrity error — the store's version history or index is inconsistent |
+| `1` | User error - bad input, missing file, unknown id, failed validation |
+| `2` | Connector error - an external app call failed or is not authorized |
+| `3` | Model error - the coding-agent harness failed, timed out, or is missing |
+| `4` | Integrity error - the store's version history or index is inconsistent |
 
 ## Confirmations
 
@@ -45,7 +45,7 @@ Scaffolds a store, asks for a Composio API key, and prints suggested next comman
 
 | Command | What it does |
 | :--- | :--- |
-| `px0 workflows new [description]` | Turn a sentence into a workflow, or interview you for one if the description is omitted |
+| `px0 workflows new` | Open an interview to describe and build a workflow |
 | `px0 workflows run [id]` | Run one now; omit the id to pick from a list |
 | `px0 workflows edit [id]` | Revise the stored request and rebuild |
 | `px0 workflows list` | Every workflow, plus any file that fails to parse |
@@ -56,13 +56,13 @@ Scaffolds a store, asks for a Composio API key, and prints suggested next comman
 | `px0 workflows copy <id> <new-id>` | Fork a workflow to a new id |
 | `px0 workflows disable <id>` / `enable <id>` | Stop it firing, or let it fire again |
 
-**`new`** — `--yes` skips every prompt, `--id <id>` names it directly, `--no-clarify` skips the clarifying questions, `--no-discover` restricts it to curated tools, `--from-file <path>` reads the description from a file. See [Build a workflow](/workflows/build).
+**`new`** - `--yes` skips every prompt, `--id <id>` names it directly, `--no-clarify` skips the clarifying questions, `--no-discover` restricts it to curated tools, `--from-file <path>` reads the description from a file. See [Build a workflow](/workflows/build).
 
-**`run`** — `--dry-run` stubs write tools, `--input KEY=VALUE` (repeatable) passes named values, `--stdin` reads piped text, `--output stdout|file` overrides the destination, `--timeout <duration>` overrides the workflow's own timeout, `--no-retry` attempts once regardless of the retry policy, `--quiet` suppresses decoration, `--json` prints the run record. See [Run a workflow](/workflows/run).
+**`run`** - `--dry-run` stubs write tools, `--input KEY=VALUE` (repeatable) passes named values, `--stdin` reads piped text, `--output stdout|file` overrides the destination, `--timeout <duration>` overrides the workflow's own timeout, `--no-retry` attempts once regardless of the retry policy, `--quiet` suppresses decoration, `--json` prints the run record. See [Run a workflow](/workflows/run).
 
-**`edit`** — takes `--yes`, `--no-clarify`, and `--no-discover`.
+**`edit`** - takes `--yes`, `--no-clarify`, and `--no-discover`.
 
-**`validate`** — `--json` prints one object per workflow with its errors. Exits `1` if anything is invalid, so it works in a pre-commit hook or CI.
+**`validate`** - `--json` prints one object per workflow with its errors. Exits `1` if anything is invalid, so it works in a pre-commit hook or CI.
 
 See [Workflow files](/workflows/anatomy) for the full frontmatter reference.
 
@@ -79,11 +79,11 @@ See [Workflow files](/workflows/anatomy) for the full frontmatter reference.
 
 `list --status` also asks Composio what is authorized, at one API call per toolkit. `px0 --json tools list` includes each tool's parameter schema.
 
-**`search`** — `--toolkit <slug>` restricts to one toolkit, `--toolkits` lists toolkits instead of tools, `--limit N` caps the results.
+**`search`** - `--toolkit <slug>` restricts to one toolkit, `--toolkits` lists toolkits instead of tools, `--limit N` caps the results.
 
-**`call`** — `--arg KEY=VALUE` (repeatable) passes arguments, `--yes` skips the confirmation a write tool asks for.
+**`call`** - `--arg KEY=VALUE` (repeatable) passes arguments, `--yes` skips the confirmation a write tool asks for.
 
-**`connect`** — `--reconnect` drops the existing authorization first. **`disconnect`** — `--yes` skips the confirmation. **`refresh`** — `--forget` drops the cache instead of re-reading it.
+**`connect`** - `--reconnect` drops the existing authorization first. **`disconnect`** - `--yes` skips the confirmation. **`refresh`** - `--forget` drops the cache instead of re-reading it.
 
 See [Tools](/tools/catalogue) and [Connections](/tools/connections).
 
@@ -101,13 +101,13 @@ See [Tools](/tools/catalogue) and [Connections](/tools/connections).
 | `px0 brain ask <question>` | Answer a question from the library |
 | `px0 brain reindex` | Rebuild the retrieval index |
 
-**`add`** — `--to <folder>` overrides the destination folder, `--from-file <path>` ingests every source listed in a file, one per line.
+**`add`** - `--to <folder>` overrides the destination folder, `--from-file <path>` ingests every source listed in a file, one per line.
 
-**`refresh`** — `--all` re-fetches everything with a recorded source, `--stale` re-fetches what has gone stale (plus every stub), `--days N` sets what counts as stale (default 30).
+**`refresh`** - `--all` re-fetches everything with a recorded source, `--stale` re-fetches what has gone stale (plus every stub), `--days N` sets what counts as stale (default 30).
 
-**`export`** — `--include-private` includes the private folder, held back by default.
+**`export`** - `--include-private` includes the private folder, held back by default.
 
-**`search`** / **`ask`** — `--k N` sets how many passages to retrieve, `--kind {blog,paper,doc,video,stub}` narrows to one kind. `ask` also takes `--sources` to print citations.
+**`search`** / **`ask`** - `--k N` sets how many passages to retrieve, `--kind {blog,paper,doc,video,stub}` narrows to one kind. `ask` also takes `--sources` to print citations.
 
 See [The brain](/brain/library).
 
@@ -121,7 +121,7 @@ See [The brain](/brain/library).
 | `px0 guidelines rm <name>` | Remove a guideline, keeping its history |
 | `px0 guidelines log <claim-id>` | One claim's edit history |
 
-A claim id is `<file>#<slug>`, for example `commit-style.md#summary-line`. There is no `px0 guidelines new` — a guideline is only ever created by `px0 workflows new` drafting one from a workflow. See [Guidelines](/guidelines/overview).
+A claim id is `<file>#<slug>`, for example `commit-style.md#summary-line`. There is no `px0 guidelines new` - a guideline is only ever created by `px0 workflows new` drafting one from a workflow. See [Guidelines](/guidelines/overview).
 
 ## runs
 
@@ -173,7 +173,7 @@ A claim id is `<file>#<slug>`, for example `commit-style.md#summary-line`. There
 | `px0 store path` | Where the store is |
 | `px0 store verify` | Check the store's own internal consistency |
 
-`export` strips secrets: the Composio key is blanked in the exported `config.toml`, and its version history is dropped from the export so the key is not recoverable from the history blobs either. `import` takes `--merge` to add what is missing and keep everything already here, or `--force` to let the import win on a collision — without either, importing into an existing store stops rather than silently overwriting. See [The store](/reference/store).
+`export` strips secrets: the Composio key is blanked in the exported `config.toml`, and its version history is dropped from the export so the key is not recoverable from the history blobs either. `import` takes `--merge` to add what is missing and keep everything already here, or `--force` to let the import win on a collision - without either, importing into an existing store stops rather than silently overwriting. See [The store](/reference/store).
 
 ## config
 
@@ -196,7 +196,7 @@ See [Configuration](/reference/configuration).
 px0 status [--hours N] [--json]
 ```
 
-Whether anything needs attention, in one screen: the daemon, workflow counts, upcoming fires, recent runs and failures, and the same problems `doctor` and `runs list --failed` would surface separately — assembled from local state, with no network or model call. `--hours N` sets how far back a failure still counts as news (default 24). See [Status](/reference/status).
+Whether anything needs attention, in one screen: the daemon, workflow counts, upcoming fires, recent runs and failures, and the same problems `doctor` and `runs list --failed` would surface separately - assembled from local state, with no network or model call. `--hours N` sets how far back a failure still counts as news (default 24). See [Status](/reference/status).
 
 ## doctor
 
@@ -222,7 +222,7 @@ Exposes the brain and the workflow list over the Model Context Protocol, so a co
 px0 completion {bash,zsh,fish}
 ```
 
-Prints a shell completion script, generated from the command tree itself — workflow ids, config keys, and run ids complete too, read live from the store.
+Prints a shell completion script, generated from the command tree itself - workflow ids, config keys, and run ids complete too, read live from the store.
 
 ## update and version
 

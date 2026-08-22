@@ -41,7 +41,7 @@ Write `px0` in lowercase, including at the start of a sentence. `px[0]` is the b
 ## Style preferences
 
 - Use active voice and second person ("you").
-- Keep sentences concise — one idea per sentence.
+- Keep sentences concise - one idea per sentence.
 - Use sentence case for headings.
 - Bold for UI elements: Click **Settings**.
 - Code formatting for file names, commands, paths, and code references.

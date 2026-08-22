@@ -46,7 +46,7 @@ px0 status --json | jq '.problems'
 | A run failed and `notify.on_failure` is `none` | `px0 config set notify.on_failure desktop` |
 | A workflow file does not parse | `px0 workflows validate` |
 
-Each problem prints the exact command that addresses it, the same discipline `px0 doctor` follows — a line you cannot act on is not useful output.
+Each problem prints the exact command that addresses it, the same discipline `px0 doctor` follows - a line you cannot act on is not useful output.
 
 ## Exit codes
 
@@ -55,7 +55,7 @@ Each problem prints the exact command that addresses it, the same discipline `px
 | `0` | Nothing needs attention |
 | `1` | At least one problem was found |
 
-That makes `px0 status` usable as a cheap health check in a hook or a script, the same way `px0 doctor` is — but without invoking your model backend or making a network call, so it is safe to run often.
+That makes `px0 status` usable as a cheap health check in a hook or a script, the same way `px0 doctor` is - but without invoking your model backend or making a network call, so it is safe to run often.
 
 ## Related configuration
 

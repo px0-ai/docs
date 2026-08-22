@@ -3,22 +3,23 @@ title: "Build a workflow"
 description: "How px0 turns a sentence into a working workflow file: what it asks, what it searches, what you approve, and how to revise it later."
 ---
 
-`px0 init` ships no workflows at all. That is the point — you describe what you want in plain English and get a working file back, rather than adapting a template someone else wrote.
+`px0 init` ships no workflows at all. That is the point - you describe what you want in plain English and get a working file back, rather than adapting a template someone else wrote.
 
 ```bash
-px0 workflows new "every friday at 5pm summarize the github pull requests I reviewed this week and post it to our slack channel"
+px0 workflows new
 ```
 
-Behind that one command, px0 runs four model passes, each with a job small enough to do well, and stops for your confirmation at the two points where a wrong answer would actually cost you something:
+Behind that one command, px0 runs an interview and four model passes, stopping for your confirmation at the points where a wrong answer would actually cost you something:
 
-1. **Clarify** — what is ambiguous about the request?
-2. **Discover** — search Composio's catalogue for the tools it needs.
-3. **Confirm** — you approve the tool set before anything is authorized.
-4. **Plan** — write the workflow against exactly those tools.
+1. **Interview** - one question at a time, until the request is concrete.
+2. **Clarify** - what is still genuinely ambiguous about the request?
+3. **Discover** - search Composio's catalogue for the tools it needs.
+4. **Confirm** - you approve the tool set before anything is authorized.
+5. **Plan** - write the workflow against exactly those tools.
 
-## Starting with no description
+## 1. The interview
 
-`px0 workflows new` on its own opens an interview instead, one question at a time, until px0 has what a workflow file must pin down:
+`px0 workflows new` opens an interview, one question at a time, until px0 has what a workflow file must pin down:
 
 |  |  |
 | :--- | :--- |
@@ -33,7 +34,7 @@ Behind that one command, px0 runs four model passes, each with a job small enoug
   answer in your own words; press Enter on a blank line to stop
 › What do you want px0 to do for you?
   digest our merged PRs each week
-› Which repository, and whose PRs — yours or the whole team's?
+› Which repository, and whose PRs - yours or the whole team's?
   razorpay/api, the whole team's
 › Where should the digest land: a Slack channel, a file, or just printed?
   #eng on slack
@@ -45,19 +46,11 @@ week and post a short digest to the #eng Slack channel.
 › Build this? [Y/edit/n]
 ```
 
-One question per turn, and the model sees every answer before writing the next one — so answering "razorpay/api, every Friday" in one breath skips the two questions that would have asked for those separately. Enter on a blank line ends the interview early and the request is written from what you did say, and the interview stops after eight questions regardless.
+One question per turn, and the model sees every answer before writing the next one - so answering "razorpay/api, every Friday" in one breath skips the two questions that would have asked for those separately. Enter on a blank line ends the interview early and the request is written from what you did say, and the interview stops after eight questions regardless.
 
-The request is shown before the build spends a planning call on it: `edit` rewrites it, `n` cancels, anything else builds. Because the interview already settled these questions, the clarifying round below is skipped — you are not asked twice.
+The request is shown before the build spends a planning call on it: `edit` rewrites it, `n` cancels, anything else builds.
 
-Not available with `--yes`, or when stdin is not a terminal: there is nobody to interview, so px0 says so and exits rather than building from nothing.
-
-A description worth writing carefully is a paragraph, and a paragraph does not survive shell quoting well — `--from-file` reads it from a file instead:
-
-```bash
-px0 workflows new "" --from-file ./friday-digest.txt
-```
-
-## 1. It asks what is ambiguous
+## 2. It asks what is still ambiguous
 
 ```
 ✓ Checking the request for gaps
@@ -69,7 +62,7 @@ a few questions
   razorpay/api
 ```
 
-Only things that would change the generated workflow get asked — which account, which channel, how often, where output goes. The model is explicitly told not to ask about anything it can pick a sane default for, because an interrogation is worse than an assumption.
+Only things that would change the generated workflow get asked - which account, which channel, how often, where output goes. The model is explicitly told not to ask about anything it can pick a sane default for, because an interrogation is worse than an assumption.
 
 You are never trapped in this. Press Enter to skip a question; skip everything in a round and the loop ends. It asks at most three rounds regardless. `--no-clarify` skips the pass entirely and builds from the description as written.
 
@@ -85,7 +78,7 @@ Whatever you answer is carried into every later pass, so the plan reflects your 
 ✓ Choosing from 18 candidates
 ```
 
-Notice what the model writes here: *searches*, not tool names. A toolkit plus a short capability phrase. It cannot know Composio's naming conventions — there is no `GMAIL_GET_EMAIL`, for instance — so it describes the action and px0 does the lookup. Nothing is invented along the way: a slug that does not appear in the search results is discarded.
+Notice what the model writes here: *searches*, not tool names. A toolkit plus a short capability phrase. It cannot know Composio's naming conventions - there is no `GMAIL_GET_EMAIL`, for instance - so it describes the action and px0 does the lookup. Nothing is invented along the way: a slug that does not appear in the search results is discarded.
 
 This is why a generated workflow gets the tool that actually fits rather than the nearest of px0's ten curated ones. Composio's catalogue runs to thousands of tools, and `px0 workflows new` searches all of it.
 
@@ -106,7 +99,7 @@ Enter accepts all; list numbers to drop (e.g. 2,3); n aborts
 
 This is the gate before anything is authorized or written, and it is worth reading rather than reflexively accepting. The model chose these tools; picking up a write tool your request never asked for is exactly the mistake this screen exists to catch.
 
-Access is stated per tool and comes from Composio's own metadata — px0 never infers it from the name:
+Access is stated per tool and comes from Composio's own metadata - px0 never infers it from the name:
 
 | Marker | Meaning |
 | :--- | :--- |
@@ -132,13 +125,13 @@ authorization needed (2)
     https://backend.composio.dev/s/...
 ```
 
-It asks before minting anything. Answer `n` and nothing is prepared — the first run that needs the app will offer a link instead. Anything already authorized is skipped:
+It asks before minting anything. Answer `n` and nothing is prepared - the first run that needs the app will offer a link instead. Anything already authorized is skipped:
 
 ```
 ✓ already authorized  github, slack
 ```
 
-Authorization happens before planning, so a build that cannot possibly work — a toolkit Composio refuses to authorize at all — stops before spending a planning call on it.
+Authorization happens before planning, so a build that cannot possibly work - a toolkit Composio refuses to authorize at all - stops before spending a planning call on it.
 
 A *pending* consent is different from a blocked one, and it does not throw away your work. The workflow file is valid either way, so px0 writes it and tells you what is still waiting in the browser.
 
@@ -175,7 +168,7 @@ Then two checks print:
 › workflow id [summarize-the-github-pull-requests-i-rev]:
 ```
 
-Accept the suggested id or type your own. For scripted use, `--yes` skips every prompt in this flow — clarifying questions, tool confirmation, authorization, and this one — and `--id <id>` names it directly.
+Accept the suggested id or type your own. For scripted use, `--yes` skips every prompt in this flow - clarifying questions, tool confirmation, authorization, and this one - and `--id <id>` names it directly.
 
 ## What you get
 
@@ -207,7 +200,7 @@ guideline: PR comment voice and format
 › Write it now? [y/N]
 ```
 
-This is for standards px0 cannot guess: what counts as worth flagging in a review, how blunt your comments are, the voice a summary is written in. Answer in your own words — a couple of lines is plenty — and finish with an empty line:
+This is for standards px0 cannot guess: what counts as worth flagging in a review, how blunt your comments are, the voice a summary is written in. Answer in your own words - a couple of lines is plenty - and finish with an empty line:
 
 ```
 › How do you like your PR review comments written?
@@ -216,9 +209,9 @@ This is for standards px0 cannot guess: what counts as worth flagging in a revie
   problem. Never comment on formatting, that is the linter's job.
 ```
 
-px0 shapes what you wrote into `##` sections, shows you the draft, and takes `again` if you want another pass. What gets saved is an ordinary guideline file: it has version history from v1, so `px0 guidelines log` works on it, and it is added to this workflow's `guidelines:` list — which means its text is inlined into every run from now on.
+px0 shapes what you wrote into `##` sections, shows you the draft, and takes `again` if you want another pass. What gets saved is an ordinary guideline file: it has version history from v1, so `px0 guidelines log` works on it, and it is added to this workflow's `guidelines:` list - which means its text is inlined into every run from now on.
 
-This is the only way a guideline gets created — there is no `px0 guidelines new`. Asking someone to compose a convention from a blank page is the step that stopped guidelines from being written at all, so the build drafts a defensible version and leaves editing to you.
+This is the only way a guideline gets created - there is no `px0 guidelines new`. Asking someone to compose a convention from a blank page is the step that stopped guidelines from being written at all, so the build drafts a defensible version and leaves editing to you.
 
 Nothing is proposed for a workflow that already says what to do, and nothing on a topic you already have a guideline for. `--yes` skips the step entirely, since there is no sensible default for "what is your commit message convention".
 
@@ -242,7 +235,7 @@ editing friday-pr-digest
 
 This rebuilds the workflow rather than opening the file, and that is on purpose: the tools, inputs, and guideline list all follow from the request, so revising the request and regenerating keeps them consistent with each other.
 
-Hand-editing the body is still perfectly fine for a wording change. Just know that a hand edit will not notice when your new instruction needs a tool the workflow does not have — that is the trade you make by skipping the rebuild.
+Hand-editing the body is still perfectly fine for a wording change. Just know that a hand edit will not notice when your new instruction needs a tool the workflow does not have - that is the trade you make by skipping the rebuild.
 
 The rebuild saves under the same id, and the old version stays in the store's history:
 
@@ -251,17 +244,15 @@ px0 changes list
 px0 changes revert <change-id>
 ```
 
-## Flags
+## Flags for revisions
+
+While `px0 workflows new` relies entirely on the interactive interview, `px0 workflows edit` supports these flags to skip prompts:
 
 | Flag | Effect |
 | :--- | :--- |
-| `--yes` | Skip every prompt: interview, clarifying questions, tool confirmation, authorization, guideline authoring |
-| `--id <id>` | Name the workflow directly instead of being asked |
-| `--no-clarify` | Build from the description as written, without asking questions |
-| `--no-discover` | Use only px0's curated tools; skip the catalogue search |
-| `--from-file <path>` | Read the description from a file instead of the command line |
-
-`--yes`, `--no-clarify`, and `--no-discover` all work on `px0 workflows edit` too, except `--id`, since an edit keeps the id it already has.
+| `--yes` | Skip every prompt: no clarifying questions, no confirmations |
+| `--no-clarify` | Rebuild from the new instructions as written, without asking questions |
+| `--no-discover` | Use only px0's curated tools; skip the Composio catalogue search |
 
 ## Next steps
 

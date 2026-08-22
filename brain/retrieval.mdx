@@ -3,7 +3,7 @@ title: "Retrieval backends"
 description: "Keyword search works out of the box with nothing to install. Semantic search is one config change plus a model download you explicitly consent to."
 ---
 
-`retrieval.backend` decides how searching your brain works. There are two options, and the default is genuinely usable — the second is an upgrade, not a fix for something broken.
+`retrieval.backend` decides how searching your brain works. There are two options, and the default is genuinely usable - the second is an upgrade, not a fix for something broken.
 
 | Backend | What you get | Cost |
 | :--- | :--- | :--- |
@@ -14,11 +14,11 @@ description: "Keyword search works out of the box with nothing to install. Seman
 
 Keyword matching, embedded in px0, no server and no models. It is fast, it works offline, and it needs zero setup.
 
-Its one real limitation is worth stating plainly: it only matches words that are actually in the text. A search for "connection pooling" will not surface a passage that says "reusing database connections" — the same idea with no shared keywords. For a library you wrote or curated yourself, where you tend to remember the words used, this matters less than you might expect.
+Its one real limitation is worth stating plainly: it only matches words that are actually in the text. A search for "connection pooling" will not surface a passage that says "reusing database connections" - the same idea with no shared keywords. For a library you wrote or curated yourself, where you tend to remember the words used, this matters less than you might expect.
 
 ### Reranking
 
-With `retrieval.rerank` on (the default), a search asks the backend for more candidates than `k` and then reorders them: how much of the query each passage covers first, how close the matched terms sit to each other second, the backend's own score as the tie-break. BM25 rewards a passage that repeats one query term; a question with three terms in it usually wants the passage that mentions all three. The rescoring is local arithmetic — no model call.
+With `retrieval.rerank` on (the default), a search asks the backend for more candidates than `k` and then reorders them: how much of the query each passage covers first, how close the matched terms sit to each other second, the backend's own score as the tie-break. BM25 rewards a passage that repeats one query term; a question with three terms in it usually wants the passage that mentions all three. The rescoring is local arithmetic - no model call.
 
 Turn it off and `k` rows in are `k` rows out, ranked by the backend alone:
 
@@ -36,7 +36,7 @@ px0 config set retrieval.backend qmd
 px0 brain reindex
 ```
 
-qmd needs Node.js 20 or newer. If it is not on your `PATH`, px0 says so and points you back at `local` rather than failing obscurely mid-search.
+If `qmd` is not on your `PATH`, px0 says so and points you back at `local` rather than failing obscurely mid-search.
 
 ### The model download is your call
 
@@ -54,7 +54,7 @@ Total Download Size:      ~2.04GB
 Download ~2.04GB of local models for semantic search? [y/N]
 ```
 
-Decline and px0 keeps indexing keywords only. It degrades rather than breaks, and it will not ask again until you consent — nothing about px0 downloads two gigabytes onto your machine without asking.
+Decline and px0 keeps indexing keywords only. It degrades rather than breaks, and it will not ask again until you consent - nothing about px0 downloads two gigabytes onto your machine without asking.
 
 Your answer is recorded in the store, and `px0 doctor` reports both the consent state and whether your installed qmd matches the version px0 is pinned to:
 
@@ -62,7 +62,7 @@ Your answer is recorded in the store, and `px0 doctor` reports both the consent 
 ✓ index  qmd backend configured (version: 2.8.3, consented)
 ```
 
-If the versions drift, `doctor` tells you the exact install command for the pinned build — and reminds you that dropping back to `local` is a legitimate answer, not a defeat.
+If the versions drift, `doctor` tells you the exact install command for the pinned build - and reminds you that dropping back to `local` is a legitimate answer, not a defeat.
 
 ### Pointing at a specific binary
 
@@ -70,7 +70,7 @@ If the versions drift, `doctor` tells you the exact install command for the pinn
 px0 config set retrieval.qmd_cmd /opt/qmd/bin/qmd
 ```
 
-Useful when `qmd` is not the right command — a wrapper script, a pinned path, a version manager shim.
+Useful when `qmd` is not the right command - a wrapper script, a pinned path, a version manager shim.
 
 ## Switching back
 
@@ -93,4 +93,4 @@ Nothing is lost. The index is rebuilt from `brain/` either way, because the Mark
 
 ## What is never indexed
 
-The private folder (`brain/work/` by default) is excluded from every retrieval on both backends — a hard exclusion, not a ranking penalty. See [The brain](/brain/library).
+The private folder (`brain/work/` by default) is excluded from every retrieval on both backends - a hard exclusion, not a ranking penalty. See [The brain](/brain/library).

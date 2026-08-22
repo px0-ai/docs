@@ -3,9 +3,9 @@ title: "Schedules and the daemon"
 description: "Give a workflow a cron schedule, install the scheduler for your OS, and understand the nightly housekeeping pass and missed-fire recovery."
 ---
 
-A workflow with a `trigger.schedule` does not fire on its own — something has to be watching the clock. That something is `px0d`, a deliberately dumb scheduler: it polls `workflows/`, evaluates cron expressions in machine local time, spawns `px0 workflows run <id> --quiet` for anything due, and runs one housekeeping pass a day.
+A workflow with a `trigger.schedule` does not fire on its own - something has to be watching the clock. That something is `px0d`, a deliberately dumb scheduler: it polls `workflows/`, evaluates cron expressions in machine local time, spawns `px0 workflows run <id> --quiet` for anything due, and runs one housekeeping pass a day.
 
-Dumb is the goal here. There is no queue to inspect, no job state to reconcile, and nothing to recover from a corrupt scheduler database — the workflow files *are* the schedule.
+Dumb is the goal here. There is no queue to inspect, no job state to reconcile, and nothing to recover from a corrupt scheduler database - the workflow files *are* the schedule.
 
 ## 1. Give a workflow a schedule
 
@@ -13,7 +13,7 @@ Dumb is the goal here. There is no queue to inspect, no job state to reconcile, 
 trigger: {schedule: "0 16 * * 5"}      # Fridays at 16:00 local time
 ```
 
-Standard five-field cron. If you described the timing in your original sentence — "every friday at 5pm" — the builder already wrote this for you.
+Standard five-field cron. If you described the timing in your original sentence - "every friday at 5pm" - the builder already wrote this for you.
 
 Invalid expressions are rejected when the workflow is validated, not silently ignored at fire time. A schedule that never fires is one of the worst failure modes an automation tool can have, so px0 refuses to save one.
 
@@ -33,7 +33,7 @@ trigger:
     every: 30m
 ```
 
-The first poll only records a baseline, so pointing a watch at a busy source does not immediately fire on everything already there. Composio's own event triggers need a public endpoint to deliver to, which a laptop does not have — this is what a local-first tool does instead. See [Workflow files](/workflows/anatomy#watching-instead-of-scheduling).
+The first poll only records a baseline, so pointing a watch at a busy source does not immediately fire on everything already there. Composio's own event triggers need a public endpoint to deliver to, which a laptop does not have - this is what a local-first tool does instead. See [Workflow files](/workflows/anatomy#watching-instead-of-scheduling).
 
 ## 2. Install the daemon
 
@@ -58,7 +58,7 @@ px0 daemon stop
 px0 daemon restart
 ```
 
-`status` tells you whether the process is genuinely alive — it signals the recorded pid rather than trusting a pidfile — plus the last fire per workflow and each scheduled workflow's next upcoming fire. That last part is the quickest way to sanity-check a cron expression you are unsure about.
+`status` tells you whether the process is genuinely alive - it signals the recorded pid rather than trusting a pidfile - plus the last fire per workflow and each scheduled workflow's next upcoming fire. That last part is the quickest way to sanity-check a cron expression you are unsure about.
 
 To run it in the foreground instead, which is what you want while debugging a schedule:
 
@@ -78,13 +78,13 @@ The loop polls every 30 seconds. On each tick it fires anything whose cron sched
 | Retention | Deletes run logs and records past the `logs.*` settings |
 | Update check | Once a week, checks PyPI for a newer px0 |
 
-Every one of those steps is fault-isolated. A broken index or an unreachable playlist is recorded in the report, and the rest of housekeeping still runs — one bad URL should not cost you a week of version checkpoints.
+Every one of those steps is fault-isolated. A broken index or an unreachable playlist is recorded in the report, and the rest of housekeeping still runs - one bad URL should not cost you a week of version checkpoints.
 
 ## 4. Missed fires
 
 If your machine was asleep or the daemon was down, the fires it missed are not silently dropped. On startup and on every tick, px0 compares each workflow's schedule against its last recorded fire, runs what it owes you, and marks anything discovered well after it was due as *late* in the run record.
 
-So a laptop that was closed on Friday afternoon still gets its Friday digest when it wakes up — and the record tells you it arrived late, so you are not left wondering why a 5pm digest is timestamped Saturday morning.
+So a laptop that was closed on Friday afternoon still gets its Friday digest when it wakes up - and the record tells you it arrived late, so you are not left wondering why a 5pm digest is timestamped Saturday morning.
 
 ## 5. Watch what it is doing
 
@@ -102,7 +102,7 @@ px0 daemon logs --follow      # tail it live; Ctrl-C to stop
 
 Timestamps in the log are UTC; cron schedules are evaluated in machine local time. That is worth remembering when a fire looks an hour off from what you expected.
 
-The log lives at `logs.path`. There is no rotation yet, so if it ever gets unwieldy, truncate it — nothing reads it back.
+The log lives at `logs.path`. There is no rotation yet, so if it ever gets unwieldy, truncate it - nothing reads it back.
 
 For one run rather than the daemon as a whole:
 
@@ -127,7 +127,7 @@ That is the loop for debugging a schedule that misbehaved: find the run, read wh
 
 ## Running without the daemon
 
-You do not have to install it. Without the daemon, `trigger.schedule` and `trigger.watch` are documentation, every run is one you started, and the nightly housekeeping simply does not happen — which mostly means hand edits are checkpointed on the next run instead of overnight, and you reindex the brain yourself with `px0 brain reindex`.
+You do not have to install it. Without the daemon, `trigger.schedule` and `trigger.watch` are documentation, every run is one you started, and the nightly housekeeping simply does not happen - which mostly means hand edits are checkpointed on the next run instead of overnight, and you reindex the brain yourself with `px0 brain reindex`.
 
 If your machine already has a scheduler you trust, pointing it at `px0 workflows run <id> --quiet` is a perfectly reasonable substitute.
 
@@ -137,7 +137,7 @@ If your machine already has a scheduler you trust, pointing it at `px0 workflows
 px0 daemon uninstall
 ```
 
-Removes whatever `install` put in place — the launchd plist or the systemd unit, unloaded first — and stops the daemon if it is running. Workflows keep their schedules; nothing fires on its own again until `px0 daemon install` runs again. On the cron fallback, it says that px0's entries are still in your crontab rather than editing it — that file is yours. `install.sh --uninstall` also removes the scheduler unit, but it removes px0 along with it.
+Removes whatever `install` put in place - the launchd plist or the systemd unit, unloaded first - and stops the daemon if it is running. Workflows keep their schedules; nothing fires on its own again until `px0 daemon install` runs again. On the cron fallback, it says that px0's entries are still in your crontab rather than editing it - that file is yours. `install.sh --uninstall` also removes the scheduler unit, but it removes px0 along with it.
 
 ## Retries and failure notifications
 

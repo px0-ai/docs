@@ -9,7 +9,7 @@ Start here:
 px0 doctor
 ```
 
-`doctor` exits `0` when everything passes and `4` when any check fails, so it works in a health-check script. Every failing check prints a concrete fix chosen for *how* it failed — the same check can fail for different reasons, and a missing binary and a version-drifted one need different commands.
+`doctor` exits `0` when everything passes and `4` when any check fails, so it works in a health-check script. Every failing check prints a concrete fix chosen for *how* it failed - the same check can fail for different reasons, and a missing binary and a version-drifted one need different commands.
 
 `--quick` skips the slower checks (daemon, harness, index) that need a live subprocess or a filesystem walk. `--json` gives you the whole report as data.
 
@@ -23,19 +23,19 @@ px0 doctor
 | `schema` | The store's schema matches this binary's | Yes |
 | `connections` | Every stored authorization is active | Yes |
 | `workflows` | Every workflow file's frontmatter parses | Yes |
-| `unreferenced_guidelines` | Counts guidelines no workflow lists | No — informational |
-| `update` | Reports what the weekly check found | No — informational |
-| `daemon` | Whether the scheduler is running | No — informational |
+| `unreferenced_guidelines` | Counts guidelines no workflow lists | No - informational |
+| `update` | Reports what the weekly check found | No - informational |
+| `daemon` | Whether the scheduler is running | No - informational |
 | `harness` | Your model backend actually responds | Yes |
 | `index` | The retrieval index is not empty while the brain has files | Yes |
-| `private_folder` | How much the private folder is holding back from retrieval | No — informational |
+| `private_folder` | How much the private folder is holding back from retrieval | No - informational |
 
-Two of those never fail on purpose. A stopped daemon is a choice, not a fault, and being one release behind is not a broken store — reporting them as failures would train you to ignore `doctor` output. `private_folder` is reported even when healthy, because the exclusion is invisible in normal use: a brain pointed at a vault with its own `work/` folder can have all of it quietly missing from every search.
+Two of those never fail on purpose. A stopped daemon is a choice, not a fault, and being one release behind is not a broken store - reporting them as failures would train you to ignore `doctor` output. `private_folder` is reported even when healthy, because the exclusion is invisible in normal use: a brain pointed at a vault with its own `work/` folder can have all of it quietly missing from every search.
 
 ## Fixing each failure
 
 <AccordionGroup>
-  <Accordion title="harness — your model backend did not respond">
+  <Accordion title="harness - your model backend did not respond">
     This is the one to fix first. Every workflow depends on it, and `doctor` invokes your coding agent CLI for real rather than just checking that the binary exists.
 
     Three different failures hide behind this check, and the fix differs:
@@ -58,7 +58,7 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
     ```
   </Accordion>
 
-  <Accordion title="connections — an authorization is not active">
+  <Accordion title="connections - an authorization is not active">
     ```
     ✗ connections  gmail connected_account is INITIATED, not ACTIVE -- finish the browser consent
     ```
@@ -68,12 +68,12 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
     There is nothing to reset by hand. If an authorization was revoked at the provider or deleted in Composio, the next run that needs it prepares a new one. See [Connections](/tools/connections).
   </Accordion>
 
-  <Accordion title="workflows — a file will not parse">
+  <Accordion title="workflows - a file will not parse">
     ```
     ✗ workflows  1 unreadable workflow file(s)
     ```
 
-    An unparseable workflow is one that will never run, so this is a real failure rather than a note. The check names the file and the line, which YAML's own error does not — it reports the position as `<unicode string>`.
+    An unparseable workflow is one that will never run, so this is a real failure rather than a note. The check names the file and the line, which YAML's own error does not - it reports the position as `<unicode string>`.
 
     Fix the frontmatter, or move the file out of `workflows/` if you are not using it. The rest of your workflows keep working in the meantime: a broken file is skipped, not fatal, and the daemon keeps firing everything else.
 
@@ -82,7 +82,7 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
     ```
   </Accordion>
 
-  <Accordion title="index — brain files exist but nothing is indexed">
+  <Accordion title="index - brain files exist but nothing is indexed">
     ```
     ✗ index  12 brain files, 0 indexed passages
     ```
@@ -93,7 +93,7 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
     px0 brain reindex
     ```
 
-    On the `qmd` backend this check reports something different — the qmd version and whether you have consented to the model download:
+    On the `qmd` backend this check reports something different - the qmd version and whether you have consented to the model download:
 
     ```
     ✓ index  qmd backend configured (version: 2.8.3, consented)
@@ -106,7 +106,7 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
     ```
   </Accordion>
 
-  <Accordion title="credentials — file permissions are too open">
+  <Accordion title="credentials - file permissions are too open">
     ```
     ✗ credentials  mode 0o644, expected 0600
     ```
@@ -115,10 +115,10 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
     chmod 600 ~/.px0/.state/credentials.toml
     ```
 
-    An absent credentials file is fine and passes — it just means you have not stored a connector secret yet.
+    An absent credentials file is fine and passes - it just means you have not stored a connector secret yet.
   </Accordion>
 
-  <Accordion title="locks — the store lock is held">
+  <Accordion title="locks - the store lock is held">
     ```
     ✗ locks  lock is held; a run may be stuck
     ```
@@ -130,7 +130,7 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
     ```
   </Accordion>
 
-  <Accordion title="schema — store and binary disagree">
+  <Accordion title="schema - store and binary disagree">
     ```
     ✗ schema  store schema 2, binary schema 1
     ```
@@ -143,18 +143,18 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
     px0 update
     ```
 
-    **Store ahead of binary** (store 2, binary 1): this store was written by a newer px0, usually because you rolled back. Upgrade this install to catch up, and avoid writes until you do — schema migrations are forward-only.
+    **Store ahead of binary** (store 2, binary 1): this store was written by a newer px0, usually because you rolled back. Upgrade this install to catch up, and avoid writes until you do - schema migrations are forward-only.
 
     ```bash
     px0 update
     ```
   </Accordion>
 
-  <Accordion title="versions — the manifest will not open">
-    Rare, and it means the version manifest database is corrupt. Move it aside and re-run `px0 init` to rebuild it. Past version content is kept, but the history linking it is lost — so if the store matters, copy the whole `.state/versions/` directory somewhere before you do this.
+  <Accordion title="versions - the manifest will not open">
+    Rare, and it means the version manifest database is corrupt. Move it aside and re-run `px0 init` to rebuild it. Past version content is kept, but the history linking it is lost - so if the store matters, copy the whole `.state/versions/` directory somewhere before you do this.
   </Accordion>
 
-  <Accordion title="unreferenced_guidelines — informational, not a fault">
+  <Accordion title="unreferenced_guidelines - informational, not a fault">
     ```
     ✓ unreferenced_guidelines  6 unreferenced file(s)
     ```
@@ -162,12 +162,12 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
     Every freshly initialized store reports this, because `px0 init` scaffolds starter guidelines before any workflow lists them. It is a nudge, not a problem: `px0 guidelines list` shows what is there, and `px0 guidelines rm <name>` clears out one you do not want, keeping its history.
   </Accordion>
 
-  <Accordion title="private_folder — how much retrieval is holding back">
+  <Accordion title="private_folder - how much retrieval is holding back">
     ```
     ✓ private_folder  12 file(s) held back under work/
     ```
 
-    Reported even when everything is fine, because the exclusion is otherwise invisible — a brain pointed at a vault with its own top-level `work/` can have all of it quietly missing from every `search`, `ask`, and workflow `retrieve:` input. If that is not what you want, rename or disable the private folder:
+    Reported even when everything is fine, because the exclusion is otherwise invisible - a brain pointed at a vault with its own top-level `work/` can have all of it quietly missing from every `search`, `ask`, and workflow `retrieve:` input. If that is not what you want, rename or disable the private folder:
 
     ```bash
     px0 config set brain.private_folder px0-private
@@ -213,9 +213,9 @@ You piped into an interactive command, or a `yes |` ran out. Either run it inter
 
 Work through these in order:
 
-1. `px0 daemon status` — is the daemon actually alive, and what does it think the next fire is?
-2. `px0 daemon logs` — did the tick happen? Log timestamps are UTC; cron is evaluated in machine local time.
-3. `px0 runs list --workflow <id> --failed` — did it fire and fail rather than never firing?
+1. `px0 daemon status` - is the daemon actually alive, and what does it think the next fire is?
+2. `px0 daemon logs` - did the tick happen? Log timestamps are UTC; cron is evaluated in machine local time.
+3. `px0 runs list --workflow <id> --failed` - did it fire and fail rather than never firing?
 
 A missed fire from a closed laptop is not dropped: px0 compares each schedule against its last recorded fire on the next tick and runs what it owes you, marking it late. See [Schedules and the daemon](/workflows/schedule).
 

@@ -3,7 +3,7 @@ title: "Browse runs"
 description: "Every run leaves a record. The interactive browser makes finding one, reading what it did, and rerunning it a single session."
 ---
 
-Every run px0 performs — manual, scheduled, or a `px0 brain ask` — leaves a record: the inputs it resolved, the guideline versions it inlined, every tool call with its timing, and the outcome.
+Every run px0 performs - manual, scheduled, or a `px0 brain ask` - leaves a record: the inputs it resolved, the guideline versions it inlined, every tool call with its timing, and the outcome.
 
 ```bash
 px0 runs
@@ -26,11 +26,11 @@ Newest first, one row per run:
 ↑↓ move  enter detail  / workflow  f outcome  a writes  s since  c clear  q quit
 ```
 
-`[write]` marks any run that called a write tool — something that posted, commented, or sent. It is the fastest way to find the run that touched the outside world. A run started with `--dry-run` is labelled as a rehearsal, so a stubbed run is never mistaken for one that really posted.
+`[write]` marks any run that called a write tool - something that posted, commented, or sent. It is the fastest way to find the run that touched the outside world. A run started with `--dry-run` is labelled as a rehearsal, so a stubbed run is never mistaken for one that really posted.
 
 Run ids are `run_<UTC date>-<UTC time>-<random>`, so they sort chronologically and never collide.
 
-Failed rows are the only ones coloured, so a screen full of runs shows you its problems before you read a word of it. The header counts visible rows against the total, and the line under it names whichever filters are actually in effect — so you are never confused about why a run you expected is missing.
+Failed rows are the only ones coloured, so a screen full of runs shows you its problems before you read a word of it. The header counts visible rows against the total, and the line under it names whichever filters are actually in effect - so you are never confused about why a run you expected is missing.
 
 | Key | Action |
 | :--- | :--- |
@@ -69,9 +69,9 @@ r rerun  l log  o output  w why  esc back
 
 Three things here are worth knowing:
 
-**The rendered prompt** is recovered from the run's raw log — the actual text the model received, with inputs interpolated and guidelines inlined. Raw logs are deleted on the retention schedule (`logs.retention_days`), so for an old run you will see `not available -- log retention removed it` instead. The record itself is kept far longer than the log, which is why the summary survives even when the verbatim prompt does not.
+**The rendered prompt** is recovered from the run's raw log - the actual text the model received, with inputs interpolated and guidelines inlined. Raw logs are deleted on the retention schedule (`logs.retention_days`), so for an old run you will see `not available -- log retention removed it` instead. The record itself is kept far longer than the log, which is why the summary survives even when the verbatim prompt does not.
 
-**Guidelines inlined** names each file *with the version* used, not just the filename. If a guideline changed after this run, that difference is visible right here — and it is the single most common explanation for "this used to work".
+**Guidelines inlined** names each file *with the version* used, not just the filename. If a guideline changed after this run, that difference is visible right here - and it is the single most common explanation for "this used to work".
 
 **Timings** are per tool call, so a slow run tells you which connector was slow rather than leaving you to guess.
 
@@ -80,7 +80,7 @@ Three things here are worth knowing:
 | `r` | Rerun this workflow; the view follows the new run. A dry run reruns as a dry run |
 | `l` | Page the full raw log through `$PAGER` |
 | `o` | Show the run's output |
-| `w` | Trace provenance — the same thing `px0 runs why` prints |
+| `w` | Trace provenance - the same thing `px0 runs why` prints |
 | `Esc` or `q` | Back to the list |
 
 ## The same data without the TUI
@@ -107,7 +107,7 @@ px0 runs cancel <run-id> [--force]         # stop a run in flight
 
 `runs open` differs from `runs output`: `output` prints the text recorded on the run, `open` reads the file on disk, so it shows what is there now if something changed it since.
 
-To apply retention outside the daemon's nightly pass — the only way it happens at all on a store that never installs the daemon:
+To apply retention outside the daemon's nightly pass - the only way it happens at all on a store that never installs the daemon:
 
 ```bash
 px0 runs prune --dry-run   # print the retention windows and how many records they apply to
@@ -116,7 +116,7 @@ px0 runs prune             # delete what is past retention
 
 Runs that called a write tool are never pruned, regardless of age.
 
-`px0 runs list` and the TUI's list view render row text from the same formatter, so what you grep is exactly what you saw on screen. `px0 runs` with no terminal to draw on — piped, or in CI — falls back to that plain listing instead of failing.
+`px0 runs list` and the TUI's list view render row text from the same formatter, so what you grep is exactly what you saw on screen. `px0 runs` with no terminal to draw on - piped, or in CI - falls back to that plain listing instead of failing.
 
 Only the current store's runs are listed. Records carry the store that produced them, which is what makes `PX0_HOME` isolate history even though `logs.path` defaults to one directory shared by every store on the machine. Records written before that stamp existed are shown rather than hidden.
 
@@ -124,7 +124,7 @@ Only the current store's runs are listed. Records carry the store that produced 
 
 ## Reading a failed run
 
-Failures are recorded, not discarded — px0 persists the record before reporting the error, so you can always go back and read what happened. Work through it in this order:
+Failures are recorded, not discarded - px0 persists the record before reporting the error, so you can always go back and read what happened. Work through it in this order:
 
 <Steps>
   <Step title="Find it">
@@ -151,7 +151,7 @@ Failures are recorded, not discarded — px0 persists the record before reportin
 | Setting | Default | What it governs |
 | :--- | :--- | :--- |
 | `logs.retention_days` | `14` | Raw logs for successful runs |
-| `logs.retention_days_failed` | `60` | Raw logs for failed runs — kept longer, because they are the ones you come back to |
+| `logs.retention_days_failed` | `60` | Raw logs for failed runs - kept longer, because they are the ones you come back to |
 | `logs.record_retention_days` | `365` | The run records themselves |
 | `logs.max_file_size_mb` | `20` | Single log file size cap |
 

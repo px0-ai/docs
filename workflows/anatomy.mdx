@@ -3,7 +3,7 @@ title: "Workflow files"
 description: "The complete reference for a workflow file: every frontmatter field, the four kinds of input, how templating and guideline inlining work, and what validation rejects."
 ---
 
-A workflow is one Markdown file under `workflows/`, at any depth — px0 loads `*.md` recursively. The YAML frontmatter is the machine contract; the body is the prompt the model receives. That is the whole format — there is no compile step, no lock file, and no hidden state. Edit the file and the next run uses it.
+A workflow is one Markdown file under `workflows/`, at any depth - px0 loads `*.md` recursively. The YAML frontmatter is the machine contract; the body is the prompt the model receives. That is the whole format - there is no compile step, no lock file, and no hidden state. Edit the file and the next run uses it.
 
 ```yaml
 ---
@@ -64,7 +64,7 @@ trigger:
     every: 30m
 ```
 
-The first poll only records a baseline, so adding a watch to a busy source does not immediately fire on everything already there. This is what a local-first tool can do in place of Composio's own event triggers, which need a public endpoint to deliver to — something a laptop does not have.
+The first poll only records a baseline, so adding a watch to a busy source does not immediately fire on everything already there. This is what a local-first tool can do in place of Composio's own event triggers, which need a public endpoint to deliver to - something a laptop does not have.
 
 ### Retries and failure notifications
 
@@ -84,7 +84,7 @@ Inputs run *before* the prompt and their results are interpolated into it. Think
 Each input has an `id` and exactly one of four sources:
 
 <AccordionGroup>
-  <Accordion title="tool — call a read tool">
+  <Accordion title="tool - call a read tool">
     ```yaml
     inputs:
       - id: recent_prs
@@ -92,12 +92,12 @@ Each input has an `id` and exactly one of four sources:
         args: {owner: razorpay, repo: api, state: all}
     ```
 
-    Only read tools are allowed here. A write tool in `inputs` is a validation error, because inputs run unconditionally — a workflow should not post something just by starting up. Put write tools in `tools` instead, where the model decides whether to call them.
+    Only read tools are allowed here. A write tool in `inputs` is a validation error, because inputs run unconditionally - a workflow should not post something just by starting up. Put write tools in `tools` instead, where the model decides whether to call them.
 
     `args` values are themselves templated, so an input can build on an earlier one.
   </Accordion>
 
-  <Accordion title="retrieve — query your brain">
+  <Accordion title="retrieve - query your brain">
     ```yaml
     inputs:
       - id: prior_art
@@ -109,7 +109,7 @@ Each input has an `id` and exactly one of four sources:
     Anything under `brain/work/` is excluded from this, as it is from every other retrieval px0 performs.
   </Accordion>
 
-  <Accordion title="source — read piped input">
+  <Accordion title="source - read piped input">
     ```yaml
     inputs:
       - id: pasted
@@ -119,7 +119,7 @@ Each input has an `id` and exactly one of four sources:
     Filled from whatever you piped in with `px0 workflows run <id> --stdin`. `stdin` is the only supported source.
   </Accordion>
 
-  <Accordion title="workflow — run another workflow first">
+  <Accordion title="workflow - run another workflow first">
     ```yaml
     inputs:
       - id: summary
@@ -140,7 +140,7 @@ inputs:
     optional: true
 ```
 
-By default, an input that fails stops the run — if the workflow is *about* those pull requests, producing a digest without them is worse than producing nothing. Mark an input `optional: true` and a failure instead resolves to nothing, the run continues, and the record marks it as degraded so you can see afterwards that something was missing.
+By default, an input that fails stops the run - if the workflow is *about* those pull requests, producing a digest without them is worse than producing nothing. Mark an input `optional: true` and a failure instead resolves to nothing, the run continues, and the record marks it as degraded so you can see afterwards that something was missing.
 
 ## Templating
 
@@ -202,7 +202,7 @@ output: {target: file, path: "monday-{date}.md"}
 
 Each stage runs in order, piping its output into the next: every stage but the last writes to memory rather than to its own destination, and the last stage's output is routed by the pipeline's own `output` block. Each stage still produces its own run record alongside the pipeline's.
 
-A stage that fails aborts the pipeline, and the run is recorded as failed. Pipelines cannot nest — a stage that is itself a pipeline is a validation error, which keeps the execution graph one level deep and legible.
+A stage that fails aborts the pipeline, and the run is recorded as failed. Pipelines cannot nest - a stage that is itself a pipeline is a validation error, which keeps the execution graph one level deep and legible.
 
 ## Validation
 
@@ -221,7 +221,7 @@ Every run validates the file first, and the builder validates the plan before sa
 
 ### A broken file does not break the rest
 
-A workflow whose frontmatter does not parse is **skipped**, not fatal. One YAML typo used to take down every workflow command; now the other workflows keep working, and the broken file is reported by name and line — YAML's own error reports the position as `<unicode string>`, which is no help at all.
+A workflow whose frontmatter does not parse is **skipped**, not fatal. One YAML typo used to take down every workflow command; now the other workflows keep working, and the broken file is reported by name and line - YAML's own error reports the position as `<unicode string>`, which is no help at all.
 
 ```bash
 px0 workflows list     # names the unreadable file
@@ -251,7 +251,7 @@ Beyond building and running one, these act on the workflow file itself:
 | `px0 workflows list` | Every workflow id with its description. A file that fails to parse is reported on its own line rather than silently omitted. |
 | `px0 workflows show <id>` | Where the file is, what version it is on, and the file itself. `--json` for the full frontmatter and body as one object. |
 | `px0 workflows validate [id]` | Check frontmatter, tools, guidelines, cron, and output target without running anything. Omit the id to check every workflow. Exits `1` if anything is invalid, so it works in a pre-commit hook or CI. |
-| `px0 workflows rm <id>` | Remove a workflow, keeping its history. Removing this way — rather than deleting the file — is what keeps the content in the object store and the removal in `px0 changes list`, so `px0 changes revert` can put it back. |
+| `px0 workflows rm <id>` | Remove a workflow, keeping its history. Removing this way - rather than deleting the file - is what keeps the content in the object store and the removal in `px0 changes list`, so `px0 changes revert` can put it back. |
 | `px0 workflows rename <id> <new-id>` | Rename the file and rewrite the `id` in its frontmatter. |
 | `px0 workflows copy <id> <new-id>` | Fork a workflow that works, instead of describing it again. |
 | `px0 workflows disable <id>` / `enable <id>` | Stop a workflow firing without deleting it, and let it fire again. The schedule stays in the file either way. |

@@ -10,7 +10,6 @@ px0 is a Python CLI distributed on PyPI and installed with pipx. It writes every
 - **Python 3.11 or newer.**
 - **A coding agent CLI** that px0 uses as its model backend: `claude`, `gemini`, `pi`, or `opencode`. px0 reuses that CLI's own login, so pick whichever one you already sign into.
 - **A [Composio](https://composio.dev) API key**, for workflows that reach other apps. You can skip this and add it later.
-- **Node.js 20 or newer**, only if you want the [qmd retrieval backend](/brain/retrieval).
 
 ## Install
 
@@ -57,7 +56,7 @@ px0 init --composio-key <your-api-key>   # non-interactive
 px0 config composio <your-api-key>       # or set it up afterwards
 ```
 
-There is no prompt when stdin is not a terminal, so `px0 init` is safe in scripts and installers — it creates the store and tells you to run `px0 config composio` when you have a key.
+There is no prompt when stdin is not a terminal, so `px0 init` is safe in scripts and installers - it creates the store and tells you to run `px0 config composio` when you have a key.
 
 That key is all the connection setup there is. Individual apps authorize themselves the first time a workflow needs one, so you never connect a service you turn out not to use. See [Connections](/tools/connections).
 
@@ -84,7 +83,7 @@ To switch later, or to pick a specific model rather than just the harness:
 px0 config model
 ```
 
-It lists the harnesses it knows about with their `PATH` status, takes a model name to select, and actually invokes the result before saving — so a typo'd model name or a missing API key is caught there instead of mid-workflow. px0 never asks for or stores a provider key itself; that stays with the harness CLI's own login.
+It lists the harnesses it knows about with their `PATH` status, takes a model name to select, and actually invokes the result before saving - so a typo'd model name or a missing API key is caught there instead of mid-workflow. px0 never asks for or stores a provider key itself; that stays with the harness CLI's own login.
 
 <Tip>
   Any other command works too. Set `model.harness_cmd` in `config.toml` to a wrapper script or a pinned path, and px0 appends the prompt as the final argument.
@@ -113,7 +112,7 @@ Every line should be a `✓`. `doctor` exits `0` when everything passes and `4` 
 ✓ private_folder           nothing held back
 ```
 
-The starter guidelines are reported as unreferenced because no workflow lists them yet — that is expected on a new store, not a fault. `harness  harness responded` means px0 actually invoked your coding agent CLI and got something back; if that line fails, fix it before anything else, because every workflow depends on it.
+The starter guidelines are reported as unreferenced because no workflow lists them yet - that is expected on a new store, not a fault. `harness  harness responded` means px0 actually invoked your coding agent CLI and got something back; if that line fails, fix it before anything else, because every workflow depends on it.
 
 See [Troubleshooting](/reference/troubleshooting) for what each check means and how to clear a failure.
 
@@ -128,32 +127,26 @@ NO_COLOR=1 px0 doctor           # same, via the environment
 FORCE_COLOR=1 px0 doctor | less -R   # keep colour through a pipe
 ```
 
-`--json` implies plain output everywhere — machine-readable data is never decorated.
+`--json` implies plain output everywhere - machine-readable data is never decorated.
 
 ## Uninstall
-
-```bash
-px0 uninstall
-```
-
-Or via the installer script:
 
 ```bash
 sh install.sh --uninstall
 ```
 
-This tears down any installed scheduler (launchd plist or systemd service) and removes the px0 binary via pipx / pip. By default, your store directory (`~/.px0`) and all your workflows, guidelines, brain, and history are preserved.
+This tears down any installed scheduler (launchd plist or systemd service) and removes the px0 binary via pipx / pip. Your store directory (`~/.px0`) and all your workflows, guidelines, brain, and history are preserved.
 
-To remove your store data at the same time:
+To remove px0 and delete all your store data at the same time:
 
 ```bash
-px0 uninstall --purge
+px0 uninstall
 ```
 
 Or without interactive confirmation:
 
 ```bash
-px0 uninstall --purge --yes
+px0 uninstall --yes
 ```
 
 ## Next steps
@@ -167,4 +160,4 @@ px0 uninstall --purge --yes
   </Card>
 </CardGroup>
 
-Once you have a workflow or two, `px0 status` is the fastest way to check whether anything needs attention — the daemon, recent failures, and the install itself, in one screen with no network call. See [Status](/reference/status).
+Once you have a workflow or two, `px0 status` is the fastest way to check whether anything needs attention - the daemon, recent failures, and the install itself, in one screen with no network call. See [Status](/reference/status).

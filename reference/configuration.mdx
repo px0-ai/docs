@@ -3,7 +3,7 @@ title: "Configuration"
 description: "Every setting in config.toml, what it does, and how to read and change it safely."
 ---
 
-Configuration lives in one file, `config.toml`, at the root of your store. It is plain TOML you can read and edit — but going through `px0 config` gets you validation, so a typo is caught when you set the key rather than during a run at 5pm on a Friday.
+Configuration lives in one file, `config.toml`, at the root of your store. It is plain TOML you can read and edit - but going through `px0 config` gets you validation, so a typo is caught when you set the key rather than during a run at 5pm on a Friday.
 
 ```bash
 px0 config list                              # every key, with value, default, and description
@@ -16,11 +16,11 @@ px0 config set retrieval.backend qmd
 | Type | How to write it |
 | :--- | :--- |
 | string | as-is; quote it if it contains spaces |
-| integer | digits — a non-integer is refused |
-| boolean | `true` or `false` — nothing else is accepted |
+| integer | digits - a non-integer is refused |
+| boolean | `true` or `false` - nothing else is accepted |
 | list | comma-separated: `"*.excalidraw.md,Templates/*"` |
 
-`px0 config unset <key>` drops a stored override so it falls back to its default — not an error even if the key was never set, and the parent table is removed once it empties. `px0 config get --help` and `px0 config set --help` print the full key list.
+`px0 config unset <key>` drops a stored override so it falls back to its default - not an error even if the key was never set, and the parent table is removed once it empties. `px0 config get --help` and `px0 config set --help` print the full key list.
 
 ## Interactive helpers
 
@@ -30,7 +30,7 @@ Two settings have their own commands, because getting them wrong is expensive an
 px0 config model
 ```
 
-Lists the harnesses px0 knows about with their `PATH` status, takes a model name, and **actually invokes the result before saving** — so a typo'd model name or a missing API key surfaces here rather than mid-workflow. It never asks for or stores a provider key; that stays with the harness CLI's own login.
+Lists the harnesses px0 knows about with their `PATH` status, takes a model name, and **actually invokes the result before saving** - so a typo'd model name or a missing API key surfaces here rather than mid-workflow. It never asks for or stores a provider key; that stays with the harness CLI's own login.
 
 ```bash
 px0 config composio <key>
@@ -45,13 +45,13 @@ Verifies the key against the live Composio API before storing it, and detects a 
 | :--- | :--- | :--- | :--- |
 | `model.harness_cmd` | string | `claude -p` | The coding agent CLI invocation px0 uses as its model backend |
 
-A known harness name (`claude`, `gemini`, `pi`, `opencode`) expands to its full command. Any other literal command works too — a wrapper script, a pinned path — and px0 appends the prompt as the final argument.
+A known harness name (`claude`, `gemini`, `pi`, `opencode`) expands to its full command. Any other literal command works too - a wrapper script, a pinned path - and px0 appends the prompt as the final argument.
 
 ## Brain
 
 | Key | Type | Default | What it does |
 | :--- | :--- | :--- | :--- |
-| `brain.path` | string | `~/.px0/brain` | Directory the brain lives in — point it at an Obsidian vault (or any folder of Markdown) and px0 reads what is already there; dot-folders like `.obsidian/` and `.trash/` are skipped |
+| `brain.path` | string | `~/.px0/brain` | Directory the brain lives in - point it at an Obsidian vault (or any folder of Markdown) and px0 reads what is already there; dot-folders like `.obsidian/` and `.trash/` are skipped |
 | `brain.private_folder` | string | `work` | Brain subfolder withheld from retrieval and never sent anywhere; set to `""` to disable, or rename it if your vault already has a folder by this name that you do want searched |
 | `brain.ignore` | list | `["*.excalidraw.md"]` | Glob patterns never indexed, on top of the always-skipped dot-folders |
 
@@ -69,12 +69,12 @@ A workflow's `output.path` is always resolved inside this directory, and a path 
 
 | Key | Type | Default | What it does |
 | :--- | :--- | :--- | :--- |
-| `connectors.provider` | `composio` \| `native` | `composio` | Intended default for brokering connections. Not yet enforced — every toolkit currently routes through Composio. |
+| `connectors.provider` | `composio` \| `native` | `composio` | Intended default for brokering connections. Not yet enforced - every toolkit currently routes through Composio. |
 | `connectors.retries` | int | `3` | Per-run transient retries, with exponential backoff |
 | `connectors.composio_api_key` | string | `""` | Your Composio API key |
 | `connectors.ca_bundle` | string | `""` | CA bundle for outbound TLS, set automatically when an intercepting proxy makes the default bundle insufficient |
 
-`ca_bundle` applies to **every** outbound request px0 makes, not just Composio — a brain fetch behind a TLS-inspecting proxy uses it too. An explicit `SSL_CERT_FILE` always wins over it, and px0 never silently disables verification.
+`ca_bundle` applies to **every** outbound request px0 makes, not just Composio - a brain fetch behind a TLS-inspecting proxy uses it too. An explicit `SSL_CERT_FILE` always wins over it, and px0 never silently disables verification.
 
 ## Tools
 
@@ -137,7 +137,7 @@ Failed logs are kept four times longer than successful ones, because those are t
 
 | Key | Type | Default | What it does |
 | :--- | :--- | :--- | :--- |
-| `update.channel` | `stable` \| `beta` | `stable` | Release channel; not functionally checked in this build — `px0 update` reports when no release manifest is configured |
+| `update.channel` | `stable` \| `beta` | `stable` | Release channel; not functionally checked in this build - `px0 update` reports when no release manifest is configured |
 | `update.check` | bool | `true` | Whether the daemon checks weekly for an available update |
 | `update.auto_install` | bool | `false` | Install updates automatically instead of only surfacing them |
 
@@ -147,8 +147,8 @@ See [Updating px0](/reference/updating).
 
 Named here so the list is honest about what the current build actually does:
 
-- `connectors.provider` — every toolkit routes through Composio regardless.
-- `update.channel` — not functionally checked; `px0 update` reports when no release manifest is configured.
+- `connectors.provider` - every toolkit routes through Composio regardless.
+- `update.channel` - not functionally checked; `px0 update` reports when no release manifest is configured.
 
 ## Using config values in a workflow
 
@@ -162,7 +162,7 @@ More usefully, this lets a workflow reference a path or a tuning value without h
 
 ## Editing the file directly
 
-Editing `config.toml` by hand is fine, and px0 versions the file like any other, so your edit shows up in history. The trade-off is that a hand edit skips validation — if px0 behaves oddly after you change the file directly, `px0 config list` shows what it actually parsed, and `px0 doctor` catches the categories of mistake that matter. What you save is checked for parseability; if it no longer parses, px0 says so and names the line to fix, and the edit is still recorded so `px0 changes revert` is there if you would rather drop it wholesale.
+Editing `config.toml` by hand is fine, and px0 versions the file like any other, so your edit shows up in history. The trade-off is that a hand edit skips validation - if px0 behaves oddly after you change the file directly, `px0 config list` shows what it actually parsed, and `px0 doctor` catches the categories of mistake that matter. What you save is checked for parseability; if it no longer parses, px0 says so and names the line to fix, and the edit is still recorded so `px0 changes revert` is there if you would rather drop it wholesale.
 
 ```bash
 px0 config edit

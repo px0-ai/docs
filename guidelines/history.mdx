@@ -1,6 +1,6 @@
 ---
 title: "History"
-description: "Trace any output back to the guidelines, passages, and tool calls behind it — and undo any change px0 or you have made."
+description: "Trace any output back to the guidelines, passages, and tool calls behind it - and undo any change px0 or you have made."
 ---
 
 px0 keeps its own history rather than relying on git, so a store works as a bare directory with nothing installed alongside it. Everything below works offline, on a store you just copied from another machine.
@@ -17,7 +17,7 @@ px0 runs why <run-id>
 
 ## Claim-level history
 
-Every `##` heading in a guideline is a claim with its own id and version chain, addressed as `<path>#<heading-slug>` — so a rule that changed reads back on its own rather than as a diff of the whole file.
+Every `##` heading in a guideline is a claim with its own id and version chain, addressed as `<path>#<heading-slug>` - so a rule that changed reads back on its own rather than as a diff of the whole file.
 
 ```bash
 px0 guidelines log commit-style.md#summary-line
@@ -27,7 +27,7 @@ px0 guidelines log commit-style.md#summary-line
 
 ## The store-wide change log
 
-A **change** is one atomic write across the store — a workflow build, a guideline the build wrote, a hand edit px0 noticed, a migration. `changes` is that log, one entry per event rather than per file, newest first:
+A **change** is one atomic write across the store - a workflow build, a guideline the build wrote, a hand edit px0 noticed, a migration. `changes` is that log, one entry per event rather than per file, newest first:
 
 ```bash
 px0 changes list
@@ -39,7 +39,7 @@ px0 changes revert <change-id>
 
 px0 records `builder` for workflow and guideline builds, `update` for schema migrations, and `user:manual` for hand edits it detects on its checkpoint scan.
 
-This is the view you want for "what happened to my store last week?" A single change can span several files — a workflow build that also wrote a new guideline, for instance — and `changes show` prints the diff for each file it touched. `changes revert` undoes the whole thing as one unit, in one new change, which is exactly what you want when a build went sideways. The revert is itself recorded, so it can be undone in turn.
+This is the view you want for "what happened to my store last week?" A single change can span several files - a workflow build that also wrote a new guideline, for instance - and `changes show` prints the diff for each file it touched. `changes revert` undoes the whole thing as one unit, in one new change, which is exactly what you want when a build went sideways. The revert is itself recorded, so it can be undone in turn.
 
 Schema migrations are forward-only and are not undone by `changes revert`. `px0 update rollback` reinstalls a previous px0 version and says so explicitly when the update it is rolling back had run migrations.
 

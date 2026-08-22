@@ -13,10 +13,10 @@ px0 has no telemetry, no analytics, and no crash reporting. It does not phone ho
 
 | Destination | When | What it carries |
 | :--- | :--- | :--- |
-| `pypi.org` | The weekly update check, `px0 update`, `px0 update --check` | Nothing about you — it reads the published version list |
+| `pypi.org` | The weekly update check, `px0 update`, `px0 update --check` | Nothing about you - it reads the published version list |
 | A URL you ingest | `px0 brain add <url>` | A plain fetch of that URL |
 | `youtube.com` | Ingesting a video or playlist | The URL you gave it, to fetch metadata and transcripts |
-| A URL a workflow's `http.get`/`http.post` tool calls | A workflow that names those tools | Whatever the workflow sends, directly — not through Composio |
+| A URL a workflow's `http.get`/`http.post` tool calls | A workflow that names those tools | Whatever the workflow sends, directly - not through Composio |
 
 Turn the update check off entirely if you would rather it never ran:
 
@@ -28,7 +28,7 @@ px0 config set update.check false
 
 This is the significant one, and it is worth being precise about.
 
-px0 has no model of its own. Every workflow run, every `px0 brain ask`, and every model pass inside `px0 workflows new` shells out to your coding agent CLI — `claude -p` by default — which sends the prompt to whichever provider that CLI is signed into.
+px0 has no model of its own. Every workflow run, every `px0 brain ask`, and every model pass inside `px0 workflows new` shells out to your coding agent CLI - `claude -p` by default - which sends the prompt to whichever provider that CLI is signed into.
 
 What is in that prompt:
 
@@ -53,13 +53,13 @@ That is the ground truth. If you are unsure whether something reached the model,
 
 ## Most tool calls go through Composio
 
-Curated, discovered, and user-declared toolkit calls route through [Composio](https://composio.dev), including the curated GitHub tools — those use Composio's authenticated proxy rather than calling GitHub directly. So a tool call carries its arguments to Composio, and Composio carries them to the app.
+Curated, discovered, and user-declared toolkit calls route through [Composio](https://composio.dev), including the curated GitHub tools - those use Composio's authenticated proxy rather than calling GitHub directly. So a tool call carries its arguments to Composio, and Composio carries them to the app.
 
 What that means in practice:
 
 - **App credentials never touch your disk.** px0 holds a Composio API key and connected-account ids, not your Slack or Gmail tokens. Revoking access happens in Composio or at the provider, or with `px0 tools disconnect`.
 - **Authorization is per app, and you drive it.** Nothing is connected until you complete a browser consent, and px0 only ever prepares authorizations for apps a workflow actually needs.
-- **Write tools are surfaced everywhere.** The builder names them before generating a workflow, `--dry-run` stubs them, and `px0 runs` marks any run that used one — so "what has px0 sent on my behalf?" is an answerable question.
+- **Write tools are surfaced everywhere.** The builder names them before generating a workflow, `--dry-run` stubs them, and `px0 runs` marks any run that used one - so "what has px0 sent on my behalf?" is an answerable question.
 
 ```bash
 px0 tools list --status     # what is authorized right now
@@ -68,7 +68,7 @@ px0 runs list              # rows marked [write] touched the outside world
 
 ## Local tools skip Composio entirely
 
-`file.read`, `file.write`, `file.list`, `brain.add`, and `shell.run` run directly on this machine and never touch Composio at all. `http.get` and `http.post` reach whatever URL a workflow gives them directly, the same way `px0 brain add` does. `shell.run` stays off until `tools.allow_shell` is explicitly set, and a workflow that can run a shell can do anything you can — treat enabling it the way you would treat handing a script your own shell.
+`file.read`, `file.write`, `file.list`, `brain.add`, and `shell.run` run directly on this machine and never touch Composio at all. `http.get` and `http.post` reach whatever URL a workflow gives them directly, the same way `px0 brain add` does. `shell.run` stays off until `tools.allow_shell` is explicitly set, and a workflow that can run a shell can do anything you can - treat enabling it the way you would treat handing a script your own shell.
 
 ## What stays local, always
 
@@ -80,7 +80,7 @@ px0 runs list              # rows marked [write] touched the outside world
 | Run records and logs | Written under `logs.path` on your machine. Nothing is uploaded. |
 
 <Warning>
-  `brain/work/` is a hard exclusion, not a ranking penalty. Files under it are never retrieved and therefore never inlined into a prompt that goes to your model backend. It is the right place for material you are willing to keep locally but not willing to send anywhere — the folder is configurable with `brain.private_folder`, including turning the exclusion off entirely.
+  `brain/work/` is a hard exclusion, not a ranking penalty. Files under it are never retrieved and therefore never inlined into a prompt that goes to your model backend. It is the right place for material you are willing to keep locally but not willing to send anywhere - the folder is configurable with `brain.private_folder`, including turning the exclusion off entirely.
 </Warning>
 
 ## Choosing how much travels
@@ -105,4 +105,4 @@ rm -rf ~/.px0                    # gone
 
 The export is deliberately safe to hand to someone else or drop into a backup: the Composio key is blanked in the exported `config.toml` and purged from the exported version history, and `.state/credentials.toml` is not copied at all.
 
-`px0` never deletes your store for you, including on uninstall. See [The store](/reference/store).
+Uninstalling via the install script never deletes your store for you, but `px0 uninstall` does. See [The store](/reference/store).

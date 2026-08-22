@@ -3,7 +3,7 @@ title: "Quickstart"
 description: "Go from a fresh install to a scheduled workflow and a searchable library, with a short explanation of what each step actually does."
 ---
 
-This walks the whole loop end to end: scaffold a store, get one real output with no setup at all, then build a workflow, run it, and put it on a schedule. It takes a few minutes, and nothing here is throwaway — everything you create is a file you keep.
+This walks the whole loop end to end: scaffold a store, get one real output with no setup at all, then build a workflow, run it, and put it on a schedule. It takes a few minutes, and nothing here is throwaway - everything you create is a file you keep.
 
 <Steps>
   <Step title="Set up your store">
@@ -28,7 +28,7 @@ This walks the whole loop end to end: scaffold a store, get one real output with
     px0 brain ask "what did that post say about caching?"
     ```
 
-    `brain add` extracts the text locally, files it as Markdown under `brain/`, and indexes it. `ask` retrieves the passages that matter and answers from them — add `--sources` when you want to see exactly which passages it used.
+    `brain add` extracts the text locally, files it as Markdown under `brain/`, and indexes it. `ask` retrieves the passages that matter and answers from them - add `--sources` when you want to see exactly which passages it used.
 
     Keep adding posts, papers, and internal docs as you read them. The library gets more useful the longer you use it. See [The brain](/brain/library).
   </Step>
@@ -37,10 +37,12 @@ This walks the whole loop end to end: scaffold a store, get one real output with
     px0 ships no workflows on purpose. You describe what you want, and it writes the file:
 
     ```bash
-    px0 workflows new "every friday at 5pm, summarize the github pull requests I reviewed this week and post it to #eng-standup"
+    px0 workflows new
     ```
 
-    Four things happen, and you get a say in two of them. px0 asks about anything genuinely ambiguous (which repositories, which channel), searches Composio's catalogue for the tools the job needs, and shows you the list before authorizing anything. Tools that can post or send are called out separately, so you can drop anything you did not ask for.
+    That opens an interview - one question at a time, until px0 has the job, what it reads, where the result goes, when it runs, and what makes the output right. It writes the request back for you to approve or reword before anything is built. Enter on a blank line ends the questions early.
+
+    px0 then asks about anything genuinely ambiguous (which repositories, which channel), searches Composio's catalogue for the tools the job needs, and shows you the list before authorizing anything. Tools that can post or send are called out separately, so you can drop anything you did not ask for.
 
     Then it writes the workflow file and prints its id. Pass `--id <name>` if you would rather name it yourself.
 
@@ -70,7 +72,7 @@ This walks the whole loop end to end: scaffold a store, get one real output with
   </Step>
 
   <Step title="Put it on a schedule">
-    Your workflow already carries the schedule from the sentence you typed — `every friday at 5pm` became a cron expression in its frontmatter. What is missing is something watching the clock. Install the scheduler:
+    Your workflow already carries the schedule from the sentence you typed - `every friday at 5pm` became a cron expression in its frontmatter. What is missing is something watching the clock. Install the scheduler:
 
     ```bash
     px0 daemon install
@@ -90,13 +92,13 @@ This walks the whole loop end to end: scaffold a store, get one real output with
     px0 runs why <run-id>   # how one run reached its result
     ```
 
-    `px0 runs` is an interactive browser — filter by workflow, outcome, or age, drill into a run, and rerun it without copying ids between commands. See [Browse runs](/runs/browse).
+    `px0 runs` is an interactive browser - filter by workflow, outcome, or age, drill into a run, and rerun it without copying ids between commands. See [Browse runs](/runs/browse).
   </Step>
 </Steps>
 
 ## Teach it how you work
 
-Generated output is only as good as the conventions behind it. Guidelines are Markdown files describing how you work — how you word a commit message, what your Go reviews check, how blunt your review comments are. A workflow lists the guidelines it needs, and those files are inlined verbatim into the prompt, so output comes back in your voice instead of the model's default.
+Generated output is only as good as the conventions behind it. Guidelines are Markdown files describing how you work - how you word a commit message, what your Go reviews check, how blunt your review comments are. A workflow lists the guidelines it needs, and those files are inlined verbatim into the prompt, so output comes back in your voice instead of the model's default.
 
 You never write one from scratch. When `px0 workflows new` finds that a workflow leans on a convention you have no file for, it drafts that guideline from the workflow, shows it to you, and lists it on the workflow so every run inlines it. Editing the draft is how it becomes yours:
 

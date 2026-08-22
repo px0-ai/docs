@@ -16,22 +16,22 @@ px0 brain search "connection pooling" --k 8
 px0 brain search "connection pooling" --json
 ```
 
-Each result line is a `path#anchor` and a relevance score, followed by a snippet. The anchor is a heading slug, so the reference points at a section rather than a whole file — which is what makes citations useful and what lets provenance track a specific claim.
+Each result line is a `path#anchor` and a relevance score, followed by a snippet. The anchor is a heading slug, so the reference points at a section rather than a whole file - which is what makes citations useful and what lets provenance track a specific claim.
 
-Words are OR-matched, so any one of them can hit, and punctuation is safe — it can never be read as query syntax. Non-ASCII works too: Devanagari, CJK, and accented Latin all match, and accents fold both ways, so `cafe` finds `café` and the reverse.
+Words are OR-matched, so any one of them can hit, and punctuation is safe - it can never be read as query syntax. Non-ASCII works too: Devanagari, CJK, and accented Latin all match, and accents fold both ways, so `cafe` finds `café` and the reverse.
 
 `--k` sets how many passages come back, defaulting to `retrieval.k_default` (5).
 
 ### Narrow by kind
 
-Every file px0 wrote records what it is in its frontmatter — `blog`, `paper`, `doc`, `video`, or `stub`. Filter to one:
+Every file px0 wrote records what it is in its frontmatter - `blog`, `paper`, `doc`, `video`, or `stub`. Filter to one:
 
 ```bash
 px0 brain search "quorum" --kind paper --k 3
 px0 brain ask "what have I read about consensus?" --kind paper --sources
 ```
 
-Files px0 did not write carry no kind, so `--kind` never matches them — in a vault that is most of your notes. When a `--kind` search finds nothing, the output says so explicitly rather than looking like an empty brain.
+Files px0 did not write carry no kind, so `--kind` never matches them - in a vault that is most of your notes. When a `--kind` search finds nothing, the output says so explicitly rather than looking like an empty brain.
 
 ## Ask a question
 
@@ -48,11 +48,11 @@ sources
   · brain/docs/payments-architecture.md#idempotency-keys
 ```
 
-`ask` is deliberately narrow. It touches no connectors and no guidelines — it is retrieval plus generation over your brain and nothing else. If you want a question answered *and* posted somewhere, that is a workflow.
+`ask` is deliberately narrow. It touches no connectors and no guidelines - it is retrieval plus generation over your brain and nothing else. If you want a question answered *and* posted somewhere, that is a workflow.
 
 ## Asks are recorded like runs
 
-Every `ask` produces a run record, exactly like a workflow run — with an `ask_`-prefixed id. It appears in `px0 runs list`, and `px0 runs why <run-id>` can explain precisely which passages fed the answer:
+Every `ask` produces a run record, exactly like a workflow run - with an `ask_`-prefixed id. It appears in `px0 runs list`, and `px0 runs why <run-id>` can explain precisely which passages fed the answer:
 
 ```bash
 px0 runs list
@@ -77,6 +77,6 @@ The passages are interpolated into the prompt, each prefixed with its `path#anch
 
 **Nothing comes back at all.** The index may be empty or stale. `px0 doctor` reports this directly, and `px0 brain reindex` fixes it. `ask` refuses with an actionable message rather than guessing when the index is empty or nothing matched the question.
 
-**The right document exists but does not match.** The default backend is keyword-based, so a search for "connection pooling" will not surface a passage that says "reusing database connections" — same idea, no shared words. That gap is exactly what the semantic backend is for. See [Retrieval backends](/brain/retrieval).
+**The right document exists but does not match.** The default backend is keyword-based, so a search for "connection pooling" will not surface a passage that says "reusing database connections" - same idea, no shared words. That gap is exactly what the semantic backend is for. See [Retrieval backends](/brain/retrieval).
 
 **A file you know you saved never appears.** Check whether it is under the private folder (`brain/work/` by default), which is excluded from every retrieval px0 performs by design.

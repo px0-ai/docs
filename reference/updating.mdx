@@ -1,6 +1,6 @@
 ---
 title: "Updating px0"
-description: "Check for a new release, update, roll back, switch channels, and uninstall — without putting your store at risk."
+description: "Check for a new release, update, roll back, switch channels, and uninstall - without putting your store at risk."
 ---
 
 px0 is distributed on PyPI and installed with pipx, so updating is a version check plus a `pipx upgrade`. `px0 update` wraps both, along with the parts that are easy to forget: store-schema migrations, restarting a running daemon, and a health check afterwards.
@@ -39,7 +39,7 @@ In order, it:
     `stable` by default. See channels below.
   </Step>
   <Step title="Upgrades with the mechanism you installed with">
-    It detects pipx or pip and uses that one — `pipx upgrade px0`, or `pip install --upgrade px0`.
+    It detects pipx or pip and uses that one - `pipx upgrade px0`, or `pip install --upgrade px0`.
   </Step>
   <Step title="Applies pending store-schema migrations">
     Each is recorded as a change in the store's own history. A migration that fails stops the update there, with the store left at the last schema it fully reached. It never half-migrates.
@@ -61,7 +61,7 @@ In order, it:
 px0 update rollback
 ```
 
-This reinstalls the version you were on before the last update — read from `update-history.json`, not guessed — and pops that entry, so repeated rollbacks walk back through your history one step at a time. With no history it says so and exits rather than doing something arbitrary.
+This reinstalls the version you were on before the last update - read from `update-history.json`, not guessed - and pops that entry, so repeated rollbacks walk back through your history one step at a time. With no history it says so and exits rather than doing something arbitrary.
 
 One caveat it prints when it applies: **schema migrations are forward-only.** If the update you are undoing migrated the store, the older binary is now looking at a newer store schema. `px0 doctor` is what tells you:
 
@@ -97,45 +97,27 @@ Two related settings:
 ## Uninstall
 
 ```bash
-px0 uninstall
-```
-
-Or using the installer script:
-
-```bash
 sh install.sh --uninstall
 ```
 
-This removes the binary, tears down the scheduler, and then *tells you* how to delete your store:
+This removes the binary, tears down the scheduler, and then *tells you* how to delete your store. The scheduler unit goes before the binary does, because a launchd job with `KeepAlive` - or a systemd service - would otherwise keep trying to run a px0 that is no longer installed. launchd plists and systemd user units are removed for you; a cron entry cannot be edited safely on your behalf, so px0 tells you it is still there.
 
-```
-Removed the launchd scheduler unit.
-To remove all local configurations and history, run:
-  rm -rf ~/.px0
-```
-
-The scheduler unit goes before the binary does, because a launchd job with `KeepAlive` — or a systemd service — would otherwise keep trying to run a px0 that is no longer installed. launchd plists and systemd user units are removed for you; a cron entry cannot be edited safely on your behalf, so px0 tells you it is still there:
-
-```
-Note: px0 cron entries remain in your crontab; remove them with `crontab -e`.
-```
-
-By default, `px0 uninstall` never deletes the store itself. `~/.px0` is a plain directory of Markdown and TOML — your guidelines, your library, your run history — so removing it is your call, and it is yours to back up or move somewhere else first:
+By default, uninstall never deletes the store itself. `~/.px0` is a plain directory of Markdown and TOML - your guidelines, your library, your run history - so removing it is your call, and it is yours to back up or move somewhere else first:
 
 ```bash
 px0 store export ~/px0-backup
 ```
 
-To remove the store, configurations, and history at the same time:
+To remove px0 and delete all your store data at the same time:
 
 ```bash
-px0 uninstall --purge
+px0 uninstall
 ```
 
 Pass `--yes` to skip interactive confirmation:
 
 ```bash
-px0 uninstall --purge --yes
+px0 uninstall --yes
 ```
 
 See [The store](/reference/store).

@@ -7,7 +7,7 @@ description: "Running a workflow by hand: the picker, dry runs, passing inputs, 
 px0 workflows run friday-pr-digest
 ```
 
-That is the whole command. Everything else on this page is about the cases where you want a little more control — trying a run safely, feeding it data, or working out why one failed.
+That is the whole command. Everything else on this page is about the cases where you want a little more control - trying a run safely, feeding it data, or working out why one failed.
 
 ## Start with a dry run
 
@@ -15,7 +15,7 @@ That is the whole command. Everything else on this page is about the cases where
 px0 workflows run friday-pr-digest --dry-run
 ```
 
-A dry run is not a simulation. It loads and validates the workflow, resolves every input for real (so read tools *are* called and you see the actual data), renders the prompt, and runs the model. The one thing it does not do is execute write tools — those are stubbed and recorded as stubbed in the run record.
+A dry run is not a simulation. It loads and validates the workflow, resolves every input for real (so read tools *are* called and you see the actual data), renders the prompt, and runs the model. The one thing it does not do is execute write tools - those are stubbed and recorded as stubbed in the run record.
 
 This is the right way to try a workflow whose output goes somewhere public. You see exactly what would have been posted, without posting it.
 
@@ -73,7 +73,7 @@ px0 workflows run friday-pr-digest --output file
 | `stdout` | Printed to your terminal. The default. |
 | `file` | Written under `output/` in the store, with `{date}`, `{datetime}`, or `{time}` in the path expanded. |
 
-Every file output is confined to the store's `output/` directory. An absolute path, or a `..` that climbs out of it, is rejected at run time — the path can come from a model-written plan, so this is a boundary px0 enforces rather than trusts. Writes are serialized with a store-wide lock, so two concurrent runs targeting the same path cannot interleave.
+Every file output is confined to the store's `output/` directory. An absolute path, or a `..` that climbs out of it, is rejected at run time - the path can come from a model-written plan, so this is a boundary px0 enforces rather than trusts. Writes are serialized with a store-wide lock, so two concurrent runs targeting the same path cannot interleave.
 
 <Note>
   A scheduled workflow must write to a file. There is nowhere for stdout to go at 5pm on a Friday when nobody is watching, so px0 rejects that combination at validation time rather than silently dropping the output.
@@ -85,7 +85,7 @@ Every file output is confined to the store's `output/` directory. An absolute pa
 px0 workflows run flaky-report --no-retry
 ```
 
-A workflow's `retry` frontmatter block, or the store-wide `runs.max_attempts`, controls how many times a failed run is attempted before it is recorded as failed for good. `--no-retry` attempts once regardless — useful while debugging, since a workflow with `retry.max_attempts: 3` would otherwise fail three times before telling you anything.
+A workflow's `retry` frontmatter block, or the store-wide `runs.max_attempts`, controls how many times a failed run is attempted before it is recorded as failed for good. `--no-retry` attempts once regardless - useful while debugging, since a workflow with `retry.max_attempts: 3` would otherwise fail three times before telling you anything.
 
 ## Quiet and JSON output
 
@@ -105,13 +105,13 @@ Understanding the stages makes failures much easier to read, because px0 names t
     The workflow file is parsed and cross-checked: every guideline file exists, every tool reference resolves, no write tool sits in `inputs`, the cron expression parses, the output target is valid.
   </Step>
   <Step title="Checkpoint hand edits">
-    Under the store lock, any edits you made in an editor since the last run are recorded as a new version — so the run you are about to do is attributable to a specific version of the file.
+    Under the store lock, any edits you made in an editor since the last run are recorded as a new version - so the run you are about to do is attributable to a specific version of the file.
   </Step>
   <Step title="Resolve inputs">
     Each input is resolved in order: a tool call, a retrieval query, stdin, or a nested sub-workflow. Results become the template context.
   </Step>
   <Step title="Render the prompt">
-    Guideline files are inlined verbatim — at an explicit `{{guidelines}}` placeholder if the body has one, otherwise prepended — and input values are interpolated into the body.
+    Guideline files are inlined verbatim - at an explicit `{{guidelines}}` placeholder if the body has one, otherwise prepended - and input values are interpolated into the body.
   </Step>
   <Step title="Run the model and its tool calls">
     The prompt goes to your harness. The model may call anything in `tools`, turn by turn, and every call is recorded with its timing. Write tools are stubbed here if this is a dry run.
@@ -134,7 +134,7 @@ A failed run is still a recorded run. px0 persists the record first and then rep
 required input 'recent_prs' failed: github is not connected yet
 ```
 
-Mark an input `optional: true` if the workflow should degrade rather than stop. An optional input that fails resolves to nothing, the run continues, and the record marks it as degraded — which is the right call for a nice-to-have context source and the wrong call for the data the workflow is about.
+Mark an input `optional: true` if the workflow should degrade rather than stop. An optional input that fails resolves to nothing, the run continues, and the record marks it as degraded - which is the right call for a nice-to-have context source and the wrong call for the data the workflow is about.
 
 **An app is not authorized.** The failure carries the link you need:
 
@@ -160,7 +160,7 @@ printed for it and finish the browser consent
 output.path has unknown placeholder(s): month -- supported: {date}, {datetime}, {time}
 ```
 
-**The workflow file does not parse.** The file is skipped rather than crashing every other command, and it is named — with its line — by `px0 workflows list` and the `workflows` check in `px0 doctor`.
+**The workflow file does not parse.** The file is skipped rather than crashing every other command, and it is named - with its line - by `px0 workflows list` and the `workflows` check in `px0 doctor`.
 
 ### Exit codes
 
@@ -169,11 +169,11 @@ Useful when a workflow runs inside a script or a CI job:
 | Code | Meaning |
 | :--- | :--- |
 | `0` | Success |
-| `1` | User error — bad arguments, no such workflow, malformed workflow file, or a failed run |
-| `2` | Connector error — an app is unauthorized, unreachable, or a tool call failed |
-| `3` | Model error — the harness failed, timed out, or is missing |
+| `1` | User error - bad arguments, no such workflow, malformed workflow file, or a failed run |
+| `2` | Connector error - an app is unauthorized, unreachable, or a tool call failed |
+| `3` | Model error - the harness failed, timed out, or is missing |
 
-A run that fails for any reason exits `1`, with the reason on stderr and the full detail in the run record. Codes `2` and `3` come from connector and harness failures raised outside the run's own control — during a build, or while setting up a connection — so a script can tell "your Slack consent lapsed" apart from "this workflow is wrong". A store-integrity problem, such as a corrupt version manifest, is what `px0 doctor` and `px0 store verify` catch separately.
+A run that fails for any reason exits `1`, with the reason on stderr and the full detail in the run record. Codes `2` and `3` come from connector and harness failures raised outside the run's own control - during a build, or while setting up a connection - so a script can tell "your Slack consent lapsed" apart from "this workflow is wrong". A store-integrity problem, such as a corrupt version manifest, is what `px0 doctor` and `px0 store verify` catch separately.
 
 ## Timeouts
 

@@ -36,8 +36,8 @@ npm run format         # format MDX files
 | `runs/` | Browsing run records |
 | `reference/` | CLI, configuration, store, status, MCP, privacy, troubleshooting, updating |
 
-Conventions for writing these pages — terminology, voice, and accuracy rules — are in [AGENTS.md](AGENTS.md).
+Conventions for writing these pages - terminology, voice, and accuracy rules - are in [AGENTS.md](AGENTS.md).
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

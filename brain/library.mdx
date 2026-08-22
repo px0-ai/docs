@@ -1,9 +1,9 @@
 ---
 title: "The brain"
-description: "Build a searchable library of what you read — posts, papers, docs, transcripts — as plain Markdown you own."
+description: "Build a searchable library of what you read - posts, papers, docs, transcripts - as plain Markdown you own."
 ---
 
-`brain/` is the library of what you have read and kept: papers, blog posts, internal docs, video transcripts. It is the fastest part of px0 to get value from, because it needs no connections and no workflows — just a store. It can be px0's own folder or any folder of Markdown you already keep, including an Obsidian vault.
+`brain/` is the library of what you have read and kept: papers, blog posts, internal docs, video transcripts. It is the fastest part of px0 to get value from, because it needs no connections and no workflows - just a store. It can be px0's own folder or any folder of Markdown you already keep, including an Obsidian vault.
 
 Unlike `workflows/` and `guidelines/`, it is not versioned. That is intentional: this is bulk reference material, and anything in it is rebuildable from its source URL. Version history for a blog post you saved would be noise.
 
@@ -23,10 +23,10 @@ Extraction always runs locally and needs no API key. The destination folder is p
 | `http(s)://...`, or a saved `.html`/`.htm` page | `requests` + BeautifulSoup | `blogs/` |
 | `.pdf` | `pdftotext -layout` when poppler is installed, else `pypdf` | `papers/` |
 | `.docx`, `.odt` | `pandoc` when installed, else a stdlib zip+XML reader | `docs/` |
-| `.doc` | `pandoc` only — the legacy binary format has no fallback | `docs/` |
+| `.doc` | `pandoc` only - the legacy binary format has no fallback | `docs/` |
 | `.md`, `.markdown`, `.txt`, `.text`, `.rst`, `.org` | Read as-is | `docs/` |
 | YouTube video | `youtube-transcript-api` | `docs/` |
-| YouTube playlist | Queued for the daemon — see below | `docs/` |
+| YouTube playlist | Queued for the daemon - see below | `docs/` |
 
 Anything else is refused, and the error lists every accepted extension. `pdftotext` and `pandoc` are used when installed, but nothing depends on them being there.
 
@@ -34,7 +34,7 @@ Anything else is refused, and the error lists every accepted extension. `pdftote
 px0 brain add ./paper.pdf --to "Personal/Reading"
 ```
 
-`--to` accepts any relative path inside the brain, so a store pointed at a vault with its own structure is not limited to `docs`, `blogs`, `papers`, and `work`. It is refused if it would land outside the brain — an absolute path, `~`, or a `..` that climbs out — and nothing is written when it is.
+`--to` accepts any relative path inside the brain, so a store pointed at a vault with its own structure is not limited to `docs`, `blogs`, `papers`, and `work`. It is refused if it would land outside the brain - an absolute path, `~`, or a `..` that climbs out - and nothing is written when it is.
 
 To ingest a whole backlog at once, one source per line:
 
@@ -42,17 +42,17 @@ To ingest a whole backlog at once, one source per line:
 px0 brain add "" --from-file ~/reading-backlog.txt
 ```
 
-Blank lines and lines starting with `#` are ignored, and the index is rebuilt once at the end rather than per file — which is what keeps a long list from being quadratic in the size of the library.
+Blank lines and lines starting with `#` are ignored, and the index is rebuilt once at the end rather than per file - which is what keeps a long list from being quadratic in the size of the library.
 
 ### YouTube links without a transcript
 
-A video with no published transcript is not rejected. px0 writes it as a **stub**: its metadata only — title, channel, description — marked `kind: stub`, with the `refresh` command to retry printed for you. A scanned PDF with no text layer is refused with a note that it needs OCR first.
+A video with no published transcript is not rejected. px0 writes it as a **stub**: its metadata only - title, channel, description - marked `kind: stub`, with the `refresh` command to retry printed for you. A scanned PDF with no text layer is refused with a note that it needs OCR first.
 
 ```bash
 px0 brain refresh docs/some-talk.md
 ```
 
-`refresh` works on anything you have ingested, not just video: it re-fetches the source — a web page is fetched again, a local file re-read, a PDF or document re-extracted — and rewrites the file in place. A stub retries its transcript and is promoted to a full `video` if one has since been published.
+`refresh` works on anything you have ingested, not just video: it re-fetches the source - a web page is fetched again, a local file re-read, a PDF or document re-extracted - and rewrites the file in place. A stub retries its transcript and is promoted to a full `video` if one has since been published.
 
 ```bash
 px0 brain refresh --all              # every file that records a source
@@ -66,7 +66,7 @@ A file with no `retrieved` date is always treated as stale.
 
 A YouTube *playlist* URL would be a long, failure-prone operation to run in the foreground, so px0 queues it as a job under `.state/ingest/` and lets `px0 daemon start` drain it in the background, one brain file per video that has a transcript.
 
-Without `yt-dlp` installed, only the first ~100 videos of a playlist are reachable, because that is all YouTube renders into the page px0 can fetch — the shortfall is reported rather than passed off as a finished job. A job that keeps failing is retired to `.state/ingest/failed/` rather than retried forever. A playlist therefore needs the daemon running to actually land:
+Without `yt-dlp` installed, only the first ~100 videos of a playlist are reachable, because that is all YouTube renders into the page px0 can fetch - the shortfall is reported rather than passed off as a finished job. A job that keeps failing is retired to `.state/ingest/failed/` rather than retried forever. A playlist therefore needs the daemon running to actually land:
 
 ```bash
 px0 daemon install
@@ -99,9 +99,9 @@ px0 brain show blogs/caching.md      # where it came from, what kind it is, and 
 px0 brain rm blogs/mistaken-ingest.md
 ```
 
-`show` and `rm` accept any of these forms for a path: a library-relative path (`blogs/x.md`), a store-relative one (`brain/blogs/x.md`), an absolute path, or a bare filename matched anywhere in the brain — refused if the name is ambiguous. `rm` drops the file's passages from the index too; deleting the file by hand works right up until you search, because the passages stay indexed until something rebuilds it.
+`show` and `rm` accept any of these forms for a path: a library-relative path (`blogs/x.md`), a store-relative one (`brain/blogs/x.md`), an absolute path, or a bare filename matched anywhere in the brain - refused if the name is ambiguous. `rm` drops the file's passages from the index too; deleting the file by hand works right up until you search, because the passages stay indexed until something rebuilds it.
 
-Or, for the whole store at once — workflows, guidelines, and the brain in one pass:
+Or, for the whole store at once - workflows, guidelines, and the brain in one pass:
 
 ```bash
 px0 store list
@@ -114,7 +114,7 @@ px0 brain export ~/Documents/brain-backup
 px0 brain export ~/Documents/everything --include-private
 ```
 
-The private folder is held back unless `--include-private` says otherwise — its whole promise is that it does not leave the machine by accident.
+The private folder is held back unless `--include-private` says otherwise - its whole promise is that it does not leave the machine by accident.
 
 ## Where it lives
 
@@ -127,7 +127,7 @@ By default `~/.px0/brain`, with folders that come from the ingest types:
 | `brain/docs/` | Documents and transcripts |
 | `brain/work/` | Anything you want kept out of retrieval entirely |
 
-You are not limited to those. Create folders that suit how you think, and px0 will index them — retrieval walks `brain/` recursively and does not care about the structure, the one exception being the private folder.
+You are not limited to those. Create folders that suit how you think, and px0 will index them - retrieval walks `brain/` recursively and does not care about the structure, the one exception being the private folder.
 
 If you already keep notes somewhere else, point px0 at that directory instead of copying files into the store:
 
@@ -136,7 +136,7 @@ px0 config set brain.path ~/vaults/notes
 px0 brain reindex
 ```
 
-Any folder of Markdown works: an Obsidian vault, a Logseq graph, a `notes/` directory in a repo. px0 reads it in place — `reindex`, `search`, and `ask` never write to it. Skipped automatically: every dot-folder (`.obsidian/`, `.trash/`, `.git/`, `.stversions/`) and drawings stored as Markdown (`*.excalidraw.md`). Add your own patterns with `brain.ignore`:
+Any folder of Markdown works: an Obsidian vault, a Logseq graph, a `notes/` directory in a repo. px0 reads it in place - `reindex`, `search`, and `ask` never write to it. Skipped automatically: every dot-folder (`.obsidian/`, `.trash/`, `.git/`, `.stversions/`) and drawings stored as Markdown (`*.excalidraw.md`). Add your own patterns with `brain.ignore`:
 
 ```bash
 px0 config set brain.ignore "*.excalidraw.md,Templates/*"
@@ -144,13 +144,13 @@ px0 config set brain.ignore "*.excalidraw.md,Templates/*"
 
 ## `brain/work/` never leaves the machine
 
-Anything filed under the private folder — `work/` by default — is excluded from every retrieval px0 performs: `px0 brain search`, `px0 brain ask`, and workflow `retrieve:` inputs alike, on both retrieval backends.
+Anything filed under the private folder - `work/` by default - is excluded from every retrieval px0 performs: `px0 brain search`, `px0 brain ask`, and workflow `retrieve:` inputs alike, on both retrieval backends.
 
 <Warning>
   This is a hard exclusion, not a ranking penalty. Files under the private folder are never retrieved and therefore never inlined into a prompt that goes to your model backend. It is the right place for material you are willing to keep locally but not willing to send anywhere. See [What leaves your machine](/reference/privacy).
 </Warning>
 
-The folder name is `brain.private_folder`, and it is configurable — set it to `""` to disable the behaviour entirely, or rename it if your vault already has a top-level `work/` you do want searched:
+The folder name is `brain.private_folder`, and it is configurable - set it to `""` to disable the behaviour entirely, or rename it if your vault already has a top-level `work/` you do want searched:
 
 ```bash
 px0 config set brain.private_folder ""            # nothing is held back
@@ -161,7 +161,7 @@ px0 config set brain.private_folder px0-private   # hold back this folder instea
 
 ## Keep the index fresh
 
-Every `px0 brain add` indexes what it just filed, and the daemon's nightly pass reindexes the whole library. You only need to do it by hand after bulk changes — dropping in a folder of files, editing many at once, changing `brain.path`, `brain.ignore`, or `brain.private_folder`, or switching backends:
+Every `px0 brain add` indexes what it just filed, and the daemon's nightly pass reindexes the whole library. You only need to do it by hand after bulk changes - dropping in a folder of files, editing many at once, changing `brain.path`, `brain.ignore`, or `brain.private_folder`, or switching backends:
 
 ```bash
 px0 brain reindex
