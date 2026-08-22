@@ -97,6 +97,12 @@ Two related settings:
 ## Uninstall
 
 ```bash
+px0 uninstall
+```
+
+Or using the installer script:
+
+```bash
 sh install.sh --uninstall
 ```
 
@@ -114,10 +120,22 @@ The scheduler unit goes before the binary does, because a launchd job with `Keep
 Note: px0 cron entries remain in your crontab; remove them with `crontab -e`.
 ```
 
-It never deletes the store itself. `~/.px0` is a plain directory of Markdown and TOML — your guidelines, your library, your run history — so removing it is your call, and it is yours to back up or move somewhere else first:
+By default, `px0 uninstall` never deletes the store itself. `~/.px0` is a plain directory of Markdown and TOML — your guidelines, your library, your run history — so removing it is your call, and it is yours to back up or move somewhere else first:
 
 ```bash
 px0 store export ~/px0-backup
+```
+
+To remove the store, configurations, and history at the same time:
+
+```bash
+px0 uninstall --purge
+```
+
+Pass `--yes` to skip interactive confirmation:
+
+```bash
+px0 uninstall --purge --yes
 ```
 
 See [The store](/reference/store).

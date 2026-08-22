@@ -133,14 +133,27 @@ FORCE_COLOR=1 px0 doctor | less -R   # keep colour through a pipe
 ## Uninstall
 
 ```bash
+px0 uninstall
+```
+
+Or via the installer script:
+
+```bash
 sh install.sh --uninstall
 ```
 
-That removes the binary and then tells you how to delete your store. It never deletes your data for you:
+This tears down any installed scheduler (launchd plist or systemd service) and removes the px0 binary via pipx / pip. By default, your store directory (`~/.px0`) and all your workflows, guidelines, brain, and history are preserved.
 
+To remove your store data at the same time:
+
+```bash
+px0 uninstall --purge
 ```
-To remove all local configurations and history, run:
-  rm -rf ~/.px0
+
+Or without interactive confirmation:
+
+```bash
+px0 uninstall --purge --yes
 ```
 
 ## Next steps
