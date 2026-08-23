@@ -13,13 +13,11 @@
       {
         "tab": "Docs",
         "icon": "book-open",
-        "pages": [
-          "index"
-        ],
         "groups": [
           {
             "group": "Get started",
             "pages": [
+              "index",
               "get-started/installation",
               "get-started/quickstart",
               "get-started/concepts"
