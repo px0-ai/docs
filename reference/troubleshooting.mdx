@@ -48,8 +48,8 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
     | :--- | :--- |
     | `claude` | Run `claude` once for OAuth login, or set `ANTHROPIC_API_KEY` |
     | `gemini` | Set `GEMINI_API_KEY`, or run `gemini` once |
-    | `pi` | Set the provider's API key env var, or pass `--api-key` |
-    | `opencode` | Run `opencode auth login`, or set a provider key env var |
+    | `pi` | Set the model backend's API key env var, or pass `--api-key` |
+    | `opencode` | Run `opencode auth login`, or set a model backend key env var |
 
     To switch backend or model, with verification before saving:
 
@@ -65,7 +65,7 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
 
     `INITIATED` means a consent was started and never completed in the browser. Finish it in the tab you already have open, or run the workflow that needs it and px0 will offer a fresh link.
 
-    There is nothing to reset by hand. If an authorization was revoked at the provider or deleted in Composio, the next run that needs it prepares a new one. See [Connections](/tools/connections).
+    There is nothing to reset by hand. If an authorization was revoked at the app or deleted in Composio, the next run that needs it prepares a new one. See [Connections](/tools/connections).
   </Accordion>
 
   <Accordion title="workflows - a file will not parse">
@@ -115,7 +115,7 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
     chmod 600 ~/.px0/.state/credentials.toml
     ```
 
-    An absent credentials file is fine and passes - it just means you have not stored a connector secret yet.
+    An absent credentials file is fine and passes - it just means you have not stored an app secret yet.
   </Accordion>
 
   <Accordion title="locks - the store lock is held">
@@ -151,7 +151,7 @@ Two of those never fail on purpose. A stopped daemon is a choice, not a fault, a
   </Accordion>
 
   <Accordion title="versions - the manifest will not open">
-    Rare, and it means the version manifest database is corrupt. Move it aside and re-run `px0 init` to rebuild it. Past version content is kept, but the history linking it is lost - so if the store matters, copy the whole `.state/versions/` directory somewhere before you do this.
+    Rare, and it means the version manifest is corrupt. Move it aside and re-run `px0 init` to rebuild it. Past version content is kept, but the history linking it is lost - so if the store matters, copy the whole `.state/versions/` directory somewhere before you do this.
   </Accordion>
 
   <Accordion title="unreferenced_guidelines - informational, not a fault">
@@ -225,7 +225,7 @@ Open the run in `px0 runs` and read two fields: the **rendered prompt** (the exa
 
 ```bash
 px0 runs why <run-id>
-px0 guidelines log guidelines/summarization.md#some-rule
+px0 guidelines log guidelines/summarization.md#some-claim
 ```
 
 ### A run failed on its output path

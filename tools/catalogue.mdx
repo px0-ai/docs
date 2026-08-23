@@ -12,7 +12,7 @@ A tool is how a workflow reaches outside px0 - a GitHub read, a Slack post, a ro
 | **User-declared** | `local.deploy_status` | A TOML file you write in the store's `tools/` folder |
 | **Discovered** | `composio:SLACK_SEND_MESSAGE` | Found by `px0 workflows new` searching Composio's catalogue |
 
-The `composio:` prefix only tells you where a discovered tool came from. Every kind goes through the same execution path, which means authorization-on-demand, retries, and dry-run stubbing behave the same whichever you use.
+The `composio:` prefix only tells you where a discovered tool came from. Every kind goes through the same run path, which means authorization-on-demand, retries, and dry-run stubbing behave the same whichever you use.
 
 ## Curated tools
 
@@ -31,7 +31,7 @@ Four toolkits have hand-written tools with argument names px0 controls:
 | `gmail.send_message` | write | Send a Gmail message |
 | `slack.post_message` | write | Post a message to a Slack channel |
 
-These exist because a handful of actions come up in almost every workflow, and a stable argument name (`url`, `channel`, `text`) is easier to hand-write than Composio's generated schema. They are a convenience, not a limit.
+These exist because a handful of tools come up in almost every workflow, and a stable argument name (`url`, `channel`, `text`) is easier to hand-write than Composio's generated schema. They are a convenience, not a limit.
 
 ## Discovered tools
 
@@ -46,7 +46,7 @@ Beyond the apps Composio brokers, a workflow can use what is already on this mac
 | Tool | What it does |
 | :--- | :--- |
 | `file.read`, `file.write`, `file.list` | Read and write files, inside the store and any directory `tools.file_roots` allows |
-| `http.get`, `http.post` | Fetch or post to a URL that is not an app px0 has a connector for |
+| `http.get`, `http.post` | Fetch or post to a URL that is not an app px0 has a tool for |
 | `brain.add` | File something into the brain, so "save what I read" is a workflow |
 | `shell.run` | Run one local command. Off until `tools.allow_shell` is true |
 
@@ -179,4 +179,4 @@ Inputs run before the prompt and their results are interpolated into it. Tools i
 | Network blip or Composio 5xx | Retries with backoff, up to `connectors.retries` (default `3`) |
 | Unknown tool slug | Fails validation before the model runs |
 
-Every tool call is recorded with its own timing in the run record, so a slow run tells you exactly which connector was slow. See [Browse runs](/runs/browse).
+Every tool call is recorded with its own timing in the run record, so a slow run tells you exactly which tool was slow. See [Browse runs](/runs/browse).

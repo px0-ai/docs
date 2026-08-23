@@ -25,7 +25,7 @@ Both work at the root (`px0 --json runs list`), and the subcommands that support
 | :--- | :--- |
 | `0` | Success |
 | `1` | User error - bad input, missing file, unknown id, failed validation |
-| `2` | Connector error - an external app call failed or is not authorized |
+| `2` | Tool error - an external app call failed or is not authorized |
 | `3` | Model error - the coding-agent harness failed, timed out, or is missing |
 | `4` | Integrity error - the store's version history or index is inconsistent |
 
@@ -70,7 +70,7 @@ See [Workflow files](/workflows/anatomy) for the full frontmatter reference.
 
 | Command | What it does |
 | :--- | :--- |
-| `px0 tools list [service]` | Every tool a workflow can call, read vs write, optionally by service |
+| `px0 tools list [app]` | Every tool a workflow can call, read vs write, optionally by app |
 | `px0 tools search [query]` | Search Composio's catalogue of toolkits and tools |
 | `px0 tools call <tool>` | Call one tool with one set of arguments and print the result |
 | `px0 tools connect <app>` | Authorize an app deliberately |
@@ -115,7 +115,7 @@ See [The brain](/brain/library).
 
 | Command | What it does |
 | :--- | :--- |
-| `px0 guidelines list` | Every guideline, numbered, with its first rule beside it |
+| `px0 guidelines list` | Every guideline, numbered, with its first claim beside it |
 | `px0 guidelines edit <name>` | Open a guideline in your editor |
 | `px0 guidelines show <name>` | Print one guideline verbatim |
 | `px0 guidelines rm <name>` | Remove a guideline, keeping its history |

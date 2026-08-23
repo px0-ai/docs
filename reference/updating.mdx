@@ -18,7 +18,7 @@ Update available: 0.1.2 on channel stable.
 
 `--check` touches nothing on disk. It reads the published versions from PyPI and compares them against what you have installed.
 
-The daemon also checks once a week during its nightly pass and records the answer, which is what `px0 doctor` reports. That way neither command hits the network on every invocation, and `doctor` stays usable offline:
+The daemon also checks once a week during its nightly pass and records the answer, which is what `px0 doctor` reports. That way neither command hits the network on every run, and `doctor` stays usable offline:
 
 ```
 ✓ update  0.1.0; 0.1.2 available as of 2026-08-20 -- run `px0 update`

@@ -24,7 +24,7 @@ Behind that one command, px0 runs an interview and four model passes, stopping f
 |  |  |
 | :--- | :--- |
 | The job | What should happen |
-| The sources | What it reads: which service, account, repository, channel, folder, or your own notes |
+| The sources | What it reads: which app, account, repository, channel, folder, or your own brain |
 | The delivery | What it produces and where that goes |
 | The cadence | On demand, on a schedule, or when something happens |
 | Done looks like | What makes the output right rather than merely produced |
@@ -78,7 +78,7 @@ Whatever you answer is carried into every later pass, so the plan reflects your 
 ✓ Choosing from 18 candidates
 ```
 
-Notice what the model writes here: *searches*, not tool names. A toolkit plus a short capability phrase. It cannot know Composio's naming conventions - there is no `GMAIL_GET_EMAIL`, for instance - so it describes the action and px0 does the lookup. Nothing is invented along the way: a slug that does not appear in the search results is discarded.
+Notice what the model writes here: *searches*, not tool names. A toolkit plus a short capability phrase. It cannot know Composio's naming conventions - there is no `GMAIL_GET_EMAIL`, for instance - so it describes the tool and px0 does the lookup. Nothing is invented along the way: a slug that does not appear in the search results is discarded.
 
 This is why a generated workflow gets the tool that actually fits rather than the nearest of px0's ten curated ones. Composio's catalogue runs to thousands of tools, and `px0 workflows new` searches all of it.
 
@@ -235,7 +235,7 @@ editing friday-pr-digest
 
 This rebuilds the workflow rather than opening the file, and that is on purpose: the tools, inputs, and guideline list all follow from the request, so revising the request and regenerating keeps them consistent with each other.
 
-Hand-editing the body is still perfectly fine for a wording change. Just know that a hand edit will not notice when your new instruction needs a tool the workflow does not have - that is the trade you make by skipping the rebuild.
+Hand-editing the body is still perfectly fine for a wording change. Just know that a hand edit will not notice when your new description needs a tool the workflow does not have - that is the trade you make by skipping the rebuild.
 
 The rebuild saves under the same id, and the old version stays in the store's history:
 

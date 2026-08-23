@@ -99,7 +99,7 @@ Two things use it. `px0 brain ask` answers questions across the whole library, a
 
 ## Runs
 
-Every execution leaves a record: the inputs it resolved, the guideline versions it inlined, every tool call with its timing, and the outcome. Manual runs, scheduled fires, and `px0 brain ask` all produce one.
+Every run leaves a record: the inputs it resolved, the guideline versions it inlined, every tool call with its timing, and the outcome. Manual runs, scheduled fires, and `px0 brain ask` all produce one.
 
 That record is what makes px0 auditable. `px0 runs why <run-id>` walks the full chain behind an output - which guideline versions were inlined, which passages were retrieved, which tools were called - and it works offline, on a bare store, with nothing else installed. See [Browse runs](/runs/browse).
 
@@ -113,7 +113,7 @@ Records are stamped with the store that produced them. Since `logs.path` default
 
 px0 has no model of its own and no direct-API backend. It shells out to a coding agent CLI in non-interactive mode - `claude -p` by default - and reuses that CLI's login, model choice, and rate limits.
 
-This is a deliberate trade. You do not hand px0 a provider key, you do not manage a second billing relationship, and px0 stays useful with whichever agent CLI you already sign into. The cost is that a workflow can only be as capable as the harness behind it, and a broken harness login breaks every workflow - which is why `px0 doctor` invokes it for real rather than just checking that the binary exists.
+This is a deliberate trade. You do not hand px0 a model backend key, you do not manage a second billing relationship, and px0 stays useful with whichever agent CLI you already sign into. The cost is that a workflow can only be as capable as the harness behind it, and a broken harness login breaks every workflow - which is why `px0 doctor` invokes it for real rather than just checking that the binary exists.
 
 It also means prompts leave your machine through that CLI. [What leaves your machine](/reference/privacy) is the full accounting of where data goes.
 

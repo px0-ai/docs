@@ -64,7 +64,7 @@ The retrieval index is derived data and is dropped and rebuilt whenever its sche
 
 ## How versioning works
 
-px0 keeps its own history rather than relying on git, because a store should not require you to adopt a version-control workflow to keep your notes safe.
+px0 keeps its own history rather than relying on git, because a store should not require you to adopt a version-control workflow to keep your library safe.
 
 Every write to a versioned file records a **change**: an actor (you, or the builder), a timestamp, and the new content of each file involved. A change can span several files - a workflow build that also wrote a guideline is one change, and reverts as one:
 
@@ -125,7 +125,7 @@ Point `logs.path` somewhere per-store if you would rather they not share a direc
 Because it is a plain directory, syncing a store through Dropbox, iCloud, Syncthing, or a private git repository all work. Two cautions worth taking seriously:
 
 <Warning>
-  `.state/credentials.toml` holds your connector secrets. Exclude it from anything you sync or commit, or make sure the destination is encrypted and private. See [What leaves your machine](/reference/privacy).
+  `.state/credentials.toml` holds your app secrets. Exclude it from anything you sync or commit, or make sure the destination is encrypted and private. See [What leaves your machine](/reference/privacy).
 </Warning>
 
 Also avoid running the daemon on two machines against the same synced store. Both would evaluate the same schedules and fire the same workflows, and a synced `schedule.json` is not a coordination mechanism.

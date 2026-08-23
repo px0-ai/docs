@@ -74,8 +74,8 @@ That picks the right non-interactive invocation for the CLI and writes it to `mo
 | :--- | :--- | :--- |
 | `claude` | `claude -p` | Run `claude` once (OAuth), or set `ANTHROPIC_API_KEY` |
 | `gemini` | `gemini -p` | Set `GEMINI_API_KEY`, or run `gemini` once |
-| `pi` | `pi -p` | Set the provider's API key env var, or pass `--api-key` |
-| `opencode` | `opencode run` | Run `opencode auth login`, or set a provider key env var |
+| `pi` | `pi -p` | Set the model backend's API key env var, or pass `--api-key` |
+| `opencode` | `opencode run` | Run `opencode auth login`, or set a model backend key env var |
 
 To switch later, or to pick a specific model rather than just the harness:
 
@@ -83,7 +83,7 @@ To switch later, or to pick a specific model rather than just the harness:
 px0 config model
 ```
 
-It lists the harnesses it knows about with their `PATH` status, takes a model name to select, and actually invokes the result before saving - so a typo'd model name or a missing API key is caught there instead of mid-workflow. px0 never asks for or stores a provider key itself; that stays with the harness CLI's own login.
+It lists the harnesses it knows about with their `PATH` status, takes a model name to select, and actually invokes the result before saving - so a typo'd model name or a missing API key is caught there instead of mid-workflow. px0 never asks for or stores a model backend key itself; that stays with the harness CLI's own login.
 
 <Tip>
   Any other command works too. Set `model.harness_cmd` in `config.toml` to a wrapper script or a pinned path, and px0 appends the prompt as the final argument.

@@ -176,7 +176,7 @@ output: {target: stdout}
 output: {target: file, path: "digests/pr-{date}.md"}
 ```
 
-Three rules govern `path`, and the reason for all of them is that the path can come from a model-written plan rather than from you:
+Three constraints govern `path`, and the reason for all of them is that the path can come from a model-written plan rather than from you:
 
 - **It is always confined under `output/`.** An absolute path, or a `..` that climbs out, is rejected at run time rather than written. Everything else is resolved relative to the store's output directory.
 - **Only three placeholders are supported:** `{date}`, `{datetime}`, and `{time}`. Both `{date}` and `{{date}}` styles work, since a plan that picked up the body's `{{...}}` habit would otherwise produce a filename with literal braces in it. Any other placeholder is an error, not a filename. The default when `path` is omitted is `output/output-{date}.md`.
@@ -202,7 +202,7 @@ output: {target: file, path: "monday-{date}.md"}
 
 Each stage runs in order, piping its output into the next: every stage but the last writes to memory rather than to its own destination, and the last stage's output is routed by the pipeline's own `output` block. Each stage still produces its own run record alongside the pipeline's.
 
-A stage that fails aborts the pipeline, and the run is recorded as failed. Pipelines cannot nest - a stage that is itself a pipeline is a validation error, which keeps the execution graph one level deep and legible.
+A stage that fails aborts the pipeline, and the run is recorded as failed. Pipelines cannot nest - a stage that is itself a pipeline is a validation error, which keeps the run graph one level deep and legible.
 
 ## Validation
 

@@ -13,7 +13,7 @@ px0 tools connect linear
 
 px0 prints a URL. Open it, complete the consent, and confirm with `px0 tools list --status`. Pass `--reconnect` to drop an existing authorization first - the fix for a token that has expired or been revoked, since without it an app already recorded as authorized just reports that and stops.
 
-You never have to know which services exist, and you never connect a service you turn out not to need.
+You never have to know which apps exist, and you never connect an app you turn out not to need.
 
 ## 1. Set up the API key, once
 
@@ -83,7 +83,7 @@ Two properties are worth knowing:
 - **Minting a URL grants nothing.** Access happens only when a human consents in the browser. px0 preparing a link gives it no access by itself.
 - **App credentials never touch your disk.** px0 holds a Composio API key and connected-account ids, not your Slack or Gmail tokens. See [What leaves your machine](/reference/privacy).
 
-If an authorization later breaks - revoked in the provider, deleted in Composio - the next run that needs it offers a fresh link. There is nothing to remove or reset by hand.
+If an authorization later breaks - revoked in the app, deleted in Composio - the next run that needs it offers a fresh link. There is nothing to remove or reset by hand.
 
 ## 3. What is ready, and what is not
 
@@ -112,7 +112,7 @@ prints its authorization URL on the first run
 | `consent pending` | A link was opened but the browser consent was not finished | Finish the consent in the tab you already have open |
 | `authorization failed` | Composio rejected it | `px0 tools connect <app> --reconnect` for a fresh link |
 
-`--status` costs one API call per provider, which is why it is opt-in rather than the default. See [Tools](/tools/catalogue) for the rest of what that listing shows.
+`--status` costs one API call per app, which is why it is opt-in rather than the default. See [Tools](/tools/catalogue) for the rest of what that listing shows.
 
 To revoke an app entirely - deleted at Composio, and removed from the store's credentials:
 

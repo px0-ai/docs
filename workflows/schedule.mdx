@@ -5,7 +5,7 @@ description: "Give a workflow a cron schedule, install the scheduler for your OS
 
 A workflow with a `trigger.schedule` does not fire on its own - something has to be watching the clock. That something is `px0d`, a deliberately dumb scheduler: it polls `workflows/`, evaluates cron expressions in machine local time, spawns `px0 workflows run <id> --quiet` for anything due, and runs one housekeeping pass a day.
 
-Dumb is the goal here. There is no queue to inspect, no job state to reconcile, and nothing to recover from a corrupt scheduler database - the workflow files *are* the schedule.
+Dumb is the goal here. There is no queue to inspect, no job state to reconcile, and nothing to recover from a corrupt scheduler state - the workflow files *are* the schedule.
 
 ## 1. Give a workflow a schedule
 

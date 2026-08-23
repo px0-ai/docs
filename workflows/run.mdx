@@ -170,10 +170,10 @@ Useful when a workflow runs inside a script or a CI job:
 | :--- | :--- |
 | `0` | Success |
 | `1` | User error - bad arguments, no such workflow, malformed workflow file, or a failed run |
-| `2` | Connector error - an app is unauthorized, unreachable, or a tool call failed |
+| `2` | Tool error - an app is unauthorized, unreachable, or a tool call failed |
 | `3` | Model error - the harness failed, timed out, or is missing |
 
-A run that fails for any reason exits `1`, with the reason on stderr and the full detail in the run record. Codes `2` and `3` come from connector and harness failures raised outside the run's own control - during a build, or while setting up a connection - so a script can tell "your Slack consent lapsed" apart from "this workflow is wrong". A store-integrity problem, such as a corrupt version manifest, is what `px0 doctor` and `px0 store verify` catch separately.
+A run that fails for any reason exits `1`, with the reason on stderr and the full detail in the run record. Codes `2` and `3` come from tool and harness failures raised outside the run's own control - during a build, or while setting up a connection - so a script can tell "your Slack consent lapsed" apart from "this workflow is wrong". A store-integrity problem, such as a corrupt version manifest, is what `px0 doctor` and `px0 store verify` catch separately.
 
 ## Timeouts
 

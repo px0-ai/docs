@@ -30,7 +30,7 @@ Two settings have their own commands, because getting them wrong is expensive an
 px0 config model
 ```
 
-Lists the harnesses px0 knows about with their `PATH` status, takes a model name, and **actually invokes the result before saving** - so a typo'd model name or a missing API key surfaces here rather than mid-workflow. It never asks for or stores a provider key; that stays with the harness CLI's own login.
+Lists the harnesses px0 knows about with their `PATH` status, takes a model name, and **actually invokes the result before saving** - so a typo'd model name or a missing API key surfaces here rather than mid-workflow. It never asks for or stores a model backend key; that stays with the harness CLI's own login.
 
 ```bash
 px0 config composio <key>

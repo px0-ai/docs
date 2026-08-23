@@ -28,7 +28,7 @@ px0 config set update.check false
 
 This is the significant one, and it is worth being precise about.
 
-px0 has no model of its own. Every workflow run, every `px0 brain ask`, and every model pass inside `px0 workflows new` shells out to your coding agent CLI - `claude -p` by default - which sends the prompt to whichever provider that CLI is signed into.
+px0 has no model of its own. Every workflow run, every `px0 brain ask`, and every model pass inside `px0 workflows new` shells out to your coding agent CLI - `claude -p` by default - which sends the prompt to whichever model backend that CLI is signed into.
 
 What is in that prompt:
 
@@ -40,7 +40,7 @@ In other words, the prompt is the union of the context the workflow gathered. If
 
 Two consequences worth internalizing:
 
-**Your provider relationship is with the harness CLI, not px0.** px0 never asks for, stores, or transmits a provider API key. Whatever data-retention terms apply to your `claude`, `gemini`, `pi`, or `opencode` login apply here. If you need a different arrangement, change the harness rather than looking for a px0 setting.
+**Your model backend relationship is with the harness CLI, not px0.** px0 never asks for, stores, or transmits a model backend API key. Whatever data-retention terms apply to your `claude`, `gemini`, `pi`, or `opencode` login apply here. If you need a different arrangement, change the harness rather than looking for a px0 setting.
 
 **You can see the exact text that was sent.** Every run records its rendered prompt, and the run browser shows it:
 
