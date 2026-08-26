@@ -18,8 +18,24 @@ Standard five-field cron. If you described the timing in your original sentence 
 Invalid expressions are rejected when the workflow is validated, not silently ignored at fire time. A schedule that never fires is one of the worst failure modes an automation tool can have, so px0 refuses to save one.
 
 <Note>
-  A scheduled workflow must write to a file (`output: {target: file, path: ...}`). Nothing is watching stdout when the run fires, so px0 treats stdout-plus-schedule as a validation error rather than losing the output.
+  A scheduled workflow must write to a file (`output: {target: file, path: ...}`) or to your [inbox](/runs/inbox) (`output: {target: inbox}`). Nothing is watching stdout when the run fires, so px0 treats stdout-plus-schedule as a validation error rather than losing the output.
 </Note>
+
+### Which clock the schedule is read against
+
+By default the daemon evaluates cron in the machine's local time. That is right until the machine moves: a laptop carried two timezones over silently shifts every "9am" report by two hours, and the same happens twice a year without moving at all.
+
+```yaml
+trigger:
+  schedule: "0 9 * * 1-5"
+  timezone: Asia/Kolkata
+```
+
+```bash
+px0 config set schedule.timezone Asia/Kolkata     # store-wide default
+```
+
+A workflow's own `trigger.timezone` wins over the store default. A zone this machine does not know fails validation rather than falling back silently, because a silent fallback looks like it worked and fires at the wrong hour. `px0 daemon status` reports each next fire on the same clock the daemon will use.
 
 ### Or watch instead of scheduling
 
@@ -33,7 +49,20 @@ trigger:
     every: 30m
 ```
 
-The first poll only records a baseline, so pointing a watch at a busy source does not immediately fire on everything already there. Composio's own event triggers need a public endpoint to deliver to, which a laptop does not have - this is what a local-first tool does instead. See [Workflow files](/workflows/anatomy#watching-instead-of-scheduling).
+The first poll only records a baseline, so pointing a watch at a busy source does not immediately fire on everything already there. Composio's own event triggers need a public endpoint to deliver to, which a laptop does not have - this is what a local-first tool does instead.
+
+What was new is piped to the run on stdin, so the workflow acts on the items that triggered it rather than going back to look and getting a different answer. `min_items` waits until that many have turned up; anything held back still counts on the next poll.
+
+```yaml
+trigger:
+  watch:
+    tool: github.list_my_prs
+    key: url
+    every: 30m
+    min_items: 3
+```
+
+See [Workflow files](/workflows/anatomy#watching-instead-of-scheduling).
 
 ## 2. Install the daemon
 
@@ -151,3 +180,19 @@ px0 config set notify.target "#ops"
 ```
 
 A workflow's own `on_failure` block wins over these, so the noisy hourly job can stay quiet while the nightly report shouts. See [Workflow files](/workflows/anatomy#retries-and-failure-notifications).
+
+## When px0 gives up
+
+An unattended workflow that fails the same way `runs.disable_after_failures` times in a row (5 by default) is parked, and you are told through the same channel failures use.
+
+A dead connector otherwise means an hourly failure and an hourly notification for the rest of the week, with nothing learning that nothing has changed.
+
+```
+px0: friday-pr-digest has been disabled
+parked automatically after 5 consecutive failures: not authenticated
+It will not fire again until you re-enable it: `px0 workflows enable friday-pr-digest`
+```
+
+It requires the *same* cause each time - a workflow failing three different ways is one to look at, not one stuck. A manual run never trips it: you are there, reading the error. The park is a versioned change like any other, so `px0 changes revert` undoes it, and `px0 workflows enable` is the ordinary way back. `px0 workflows health` reports a parked workflow as a problem in its own right.
+
+Set `px0 config set runs.disable_after_failures 0` to let a workflow keep trying forever.

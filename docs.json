@@ -24,12 +24,19 @@
             ]
           },
           {
+            "group": "Ask",
+            "pages": [
+              "ask/overview"
+            ]
+          },
+          {
             "group": "Workflows",
             "pages": [
               "workflows/build",
               "workflows/run",
               "workflows/anatomy",
-              "workflows/schedule"
+              "workflows/schedule",
+              "workflows/improve"
             ]
           },
           {
@@ -37,6 +44,12 @@
             "pages": [
               "tools/connections",
               "tools/catalogue"
+            ]
+          },
+          {
+            "group": "Approvals",
+            "pages": [
+              "approvals/overview"
             ]
           },
           {
@@ -55,9 +68,16 @@
             ]
           },
           {
+            "group": "Memory",
+            "pages": [
+              "memory/overview"
+            ]
+          },
+          {
             "group": "Runs",
             "pages": [
-              "runs/browse"
+              "runs/browse",
+              "runs/inbox"
             ]
           },
           {

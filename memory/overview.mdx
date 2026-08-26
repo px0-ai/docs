@@ -1,0 +1,105 @@
+---
+title: "Memory"
+description: "What px0 knows about you, as opposed to what you have read."
+---
+
+Your store already held two kinds of knowledge, and neither was this one. The [brain](/brain/library) is material you deliberately ingested - posts, papers, docs - and it answers questions about the world. [Guidelines](/guidelines/overview) are conventions you wrote down, and they shape how output reads.
+
+Between them there was nothing that remembered **you**: that standup goes out before 09:30, that "the API repo" means one particular repository, that a person you keep mentioning is on your team. So every run started from nothing, and every correction had to be made again the next time.
+
+```bash
+px0 memory add "standup goes out before 09:30, and never mentions unfinished work"
+```
+
+Every run from then on gets that as context.
+
+## What a memory looks like
+
+One Markdown file per fact under `memory/`, in the same shape as everything else in your store:
+
+```markdown
+---
+kind: preference
+subject: standup timing
+learned: 2026-08-26
+---
+
+Standup goes out before 09:30, and never mentions unfinished work.
+```
+
+Kinds are `fact`, `preference`, `person`, `project`, and `place`. They are a filing aid that makes a listing scannable, not a schema.
+
+## Two things follow from that
+
+**A memory is editable, because it will be wrong.** px0 writes these as a side effect of conversations, and an assistant that silently accumulates unreviewable beliefs about you is the failure mode to design against. Every memory is a file you can open, correct, or delete - and every write is a versioned change, so `px0 changes list` shows what px0 learned and when, and `px0 changes revert` unlearns it.
+
+**Memory never leaves the machine on its own.** It is inlined into prompts the same way guidelines are - into the harness you already trust - and goes nowhere else.
+
+<Note>
+`px0 store export` and `px0 store sync` both carry `memory/`, because that is how a store reaches your other machine and an assistant that forgets everything on the new one is not one.
+</Note>
+
+## What px0 remembers for itself
+
+You will mostly not type these. When you mark a run bad, or correct px0 in a conversation, it reads what you said for the part that will still be true next month:
+
+```bash
+px0 runs mark run_20260826-090000-a1b2 --bad "it covered last week; my week is Mon-Fri"
+px0 memory suggest
+```
+
+```
+2 worth remembering?
+
+› px0 only keeps what you agree to. Each becomes a file you can edit or delete.
+  · My working week runs Monday to Friday.
+    from  marked a run bad for covering last week
+remember this? [y/N]
+```
+
+It proposes; you accept. Anything already remembered under the same subject is dropped before you see it, and a model reply px0 cannot read suggests nothing rather than failing the command. `--yes` keeps all of them, for reviewing a batch you already trust.
+
+The two places a standing fact tends to sit in plain sight - a note on a run you marked bad, and a correction inside a conversation - were both already being recorded, and neither was being read for this.
+
+## How a run uses it
+
+Every run gets the memories relevant to its own instructions, chosen by local arithmetic rather than a model call or the retrieval index. Memories are short, few, and read on every run, so paying for an embedding pass to choose between forty lines of text would cost more than inlining all of them.
+
+Pinned memories rank first, which is how "never crowded out" is kept. Past `memory.budget_chars` (4000 by default) the rest wait, so a store that has been running for a year does not turn every prompt into a biography. A single memory longer than the whole budget is clipped rather than admitted, so the ceiling holds whatever is in the folder - the file on disk is untouched.
+
+A workflow can place the block itself with `{{memory}}` in its body. Otherwise it goes above the guidelines and the instructions. [`px0 runs why`](/runs/browse) reports which memories a run used, which is the first thing you want when a run behaves in a way its instructions alone do not explain.
+
+## How a run writes to it
+
+Two tools, which a workflow can be given like any others:
+
+| Tool | | What it does |
+| :--- | :--- | :--- |
+| `memory.remember` | write | Write one fact about you or your work into `memory/` |
+| `memory.recall` | read | Look up what px0 remembers, mid-run |
+
+`recall` is for when what needs looking up depends on what the run found - a name in a pull request, a project mentioned in an email. `remember` is a write tool, so it can be [held for approval](/approvals/overview) like any other.
+
+## Commands
+
+| Command | What it does |
+| :--- | :--- |
+| `px0 memory list` | Everything px0 remembers. A pinned memory is marked `*` |
+| `px0 memory add "<text>"` | Tell px0 something, with `--kind`, `--subject`, and `--pin` |
+| `px0 memory show <name>` | One memory in full |
+| `px0 memory search "<query>"` | What px0 remembers about something |
+| `px0 memory suggest` | What it thinks it should remember, from your corrections |
+| `px0 memory forget <name>` | Remove one. The history stays |
+
+<Tip>
+`px0 memory search` ranks by relevance alone, unlike what a *run* is given, where pinned memories come first. Pinning is a claim about what every run should see; letting it outrank the query in a search would answer a question nobody asked.
+</Tip>
+
+Writing to a subject that already exists **replaces** that memory rather than adding a second. A fact that has changed is not two facts, and a folder holding both will contradict itself inside a prompt.
+
+## Settings
+
+| Key | Default | Effect |
+| :--- | :--- | :--- |
+| `memory.enabled` | `true` | Whether runs inline memory at all. Off keeps the folder and stops reading it |
+| `memory.budget_chars` | `4000` | How much remembered text one run may inline |

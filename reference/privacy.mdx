@@ -34,6 +34,7 @@ What is in that prompt:
 
 - The workflow body, after templating.
 - Every guideline file the workflow lists, inlined verbatim.
+- The [memories](/memory/overview) relevant to that workflow, inlined the same way guidelines are.
 - Every resolved input: tool results, retrieved brain passages, piped stdin.
 
 In other words, the prompt is the union of the context the workflow gathered. If a workflow reads your calendar and your inbox, that content is in the prompt.
@@ -47,7 +48,10 @@ Two consequences worth internalizing:
 ```bash
 px0 runs                 # open a run, read "rendered prompt"
 px0 runs logs <run-id>   # the raw log
+px0 runs events <run-id> # what happened, without the content
 ```
+
+`px0 runs events` is the middle ground: it records which tool was called with which argument **names**, never their values, because a tool's arguments routinely carry the content of the work. It is the part of a run that is safe to keep and share.
 
 That is the ground truth. If you are unsure whether something reached the model, read the prompt rather than reasoning about it.
 
@@ -75,9 +79,15 @@ px0 runs list              # rows marked [write] touched the outside world
 | Path | Guarantee |
 | :--- | :--- |
 | `brain/work/` | Never retrieved by `search`, `ask`, or a workflow `retrieve:` input, on either backend. It therefore never enters a prompt. The folder name is `brain.private_folder` and is configurable. |
-| `.state/credentials.toml` | Local file, mode `0600`, checked on every `px0 doctor`. Excluded from `px0 store export`. |
+| `.state/credentials.toml` | Local file, mode `0600`, checked on every `px0 doctor`. Excluded from `px0 store export` and from `px0 store sync`. |
+| `.state/fixtures/` | Captured run inputs, written only where a workflow asks with `capture: true`. Excluded from both export and sync, and aged out on `runs.fixture_keep_days`. |
+| `memory/` | Inlined into prompts the same way guidelines are, and sent nowhere else. It travels with `px0 store export` and `px0 store sync`, which are both movements between your own machines. |
 | An exported store | Carries no API key: `config.toml` is exported with the Composio key blanked, and its version history is dropped so the key is not recoverable from the history blobs either. |
 | Run records and logs | Written under `logs.path` on your machine. Nothing is uploaded. |
+
+<Warning>
+  **Captured fixtures are the most sensitive thing px0 writes.** With `capture: true`, a run keeps what its inputs actually resolved to - the emails, the diffs, the messages - so that a later revision can be compared against the same data. That is off by default and per workflow for exactly this reason. `px0 workflows replay <id> --forget` deletes them, and they never leave `.state/`.
+</Warning>
 
 <Warning>
   `brain/work/` is a hard exclusion, not a ranking penalty. Files under it are never retrieved and therefore never inlined into a prompt that goes to your model backend. It is the right place for material you are willing to keep locally but not willing to send anywhere - the folder is configurable with `brain.private_folder`, including turning the exclusion off entirely.
@@ -88,6 +98,8 @@ px0 runs list              # rows marked [write] touched the outside world
 A few practical levers, in rough order of how much they buy you:
 
 - **Keep sensitive material in `brain/work/`.** A hard exclusion is easier to reason about than a careful workflow.
+- **Hold writes for approval.** `confirm: true` on a workflow, or `tools.confirm_writes` store-wide, means nothing is sent in your name until you have read exactly what it says. See [Approvals](/approvals/overview).
+- **Leave `capture` off** unless you are actively working on a workflow, and `--forget` its fixtures when you are done.
 - **Prefer read tools and dry runs while iterating.** `--dry-run` resolves real inputs but executes nothing outward, so you can inspect the prompt before anything is sent.
 - **Use the local retrieval backend.** `retrieval.backend = local` is keyword search inside px0, with no model download and no embedding calls. The `qmd` backend runs its models locally too, so neither backend sends your library anywhere.
 - **Scope the Composio key.** It needs `auth_configs` write access to prepare authorizations, but you decide which apps you ever consent to.

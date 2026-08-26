@@ -1,0 +1,114 @@
+---
+title: "Ask"
+description: "One question, routed to whichever part of px0 can answer it."
+---
+
+Everything px0 could do, it could only do if you already knew it was there. Running a workflow meant knowing a workflow existed and typing its id. `px0 brain ask` answered from material you had ingested and, by design, never touched connectors - so it could tell you what a post said about caching, and not what was on your calendar.
+
+`px0 ask` is the front door. You ask; px0 works out who should answer.
+
+```bash
+px0 ask "which pull requests did I review this week?"
+```
+
+## Where a question can go
+
+| Route | When px0 picks it |
+| :--- | :--- |
+| `memory` | px0 already knows, because you told it. See [Memory](/memory/overview). |
+| `brain` | The answer is in something you have read and kept. |
+| `workflow` | You have already built something that does exactly this - so run it. |
+| `tool` | One read-only call answers it, with every argument settled by the question itself. |
+| `answer` | None of the above. General knowledge, reasoning, or writing that needs no lookup. |
+
+The route px0 chose is printed above the answer, so a question that went somewhere surprising says so instead of leaving you guessing.
+
+```
+  asked: workflow · friday-pr-digest
+
+## PRs you reviewed this week
+
+- Fix retry backoff in the queue consumer
+- Drop the unused index on events
+
+from  ran friday-pr-digest
+```
+
+Pin the route yourself when you already know where a question belongs, or when the router keeps getting one kind of question wrong:
+
+```bash
+px0 ask "what did that post say about backpressure?" --route brain
+px0 ask "did the nightly deploy go out?" --explain
+```
+
+`--explain` prints the routing decision and stops. Nothing runs and nothing is answered.
+
+## Two limits, on purpose
+
+<Warning>
+**A question is never permission to act.** A workflow with any write tool is confirmed by name before `ask` will run it - "what does my standup look like" must not post it - and in a non-interactive shell it is refused rather than assumed. Pass `--yes` to waive that.
+</Warning>
+
+The router is only ever shown **read-only** tools. A router one bad classification away from sending something would undo the whole argument for a front door being safe to ask.
+
+## Conversations
+
+With no question and a terminal to type into, `px0 ask` opens a conversation instead of answering once and forgetting.
+
+```bash
+px0 ask                  # ask, follow up, correct
+px0 ask --continue       # carry on the last one
+```
+
+Two things change once there is a thread. A follow-up is understood in terms of what came before, so "and last week?" - which names no subject and is unroutable on its own - still lands. And a turn that reads as putting px0 right is marked as a **correction**.
+
+Corrections are the reason this exists. What you say when an answer is wrong is the highest-signal thing you will say all day, and it used to be discarded the moment the command exited. At the end of a conversation px0 reads them for standing facts and offers to keep the ones worth keeping:
+
+```
+worth remembering?
+
+› px0 only keeps what you agree to. Each of these becomes a file you can edit or delete.
+  · My working week runs Monday to Friday.
+    from  no, I meant this week - my week is Mon-Fri
+remember this? [y/N]
+```
+
+Nothing is kept without you saying so. `--no-remember` skips the offer entirely.
+
+<Note>
+The conversation itself is scaffolding. It lives under `.state/sessions/` and is pruned after `ask.session_days` (7 by default). What survives it is what you agreed to remember, which becomes an ordinary versioned file under `memory/`.
+</Note>
+
+## Questions you keep asking
+
+Every ask is recorded as a run, like everything else px0 does. When the same question comes round for the third time, px0 says so:
+
+```
+you have asked this 3 times -- px0 can build it into a workflow and put it on a schedule:
+  px0 workflows new
+```
+
+The observation worth surfacing is not that you repeated yourself. It is that you keep doing by hand something that could have been waiting for you.
+
+## Flags
+
+| Flag | Effect |
+| :--- | :--- |
+| `--route ROUTE` | Skip the router: `memory`, `brain`, `workflow`, `tool`, or `answer` |
+| `--explain` | Print where the question would go, and stop |
+| `--k N` | Passages to retrieve when the answer comes from your brain |
+| `--continue` | Carry on the last conversation |
+| `--no-remember` | Do not offer to keep what a conversation taught px0 |
+| `--yes` | Run a workflow that can write without confirming it |
+| `--json` | The question, the decision, the answer, and its sources |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Memory" icon="brain" href="/memory/overview">
+    What px0 knows about you, which every route can draw on.
+  </Card>
+  <Card title="Ask your brain" icon="book-open" href="/brain/ask">
+    The narrow, brain-only ask. Still there, still means exactly that.
+  </Card>
+</CardGroup>

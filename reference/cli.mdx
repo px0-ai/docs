@@ -31,7 +31,7 @@ Both work at the root (`px0 --json runs list`), and the subcommands that support
 
 ## Confirmations
 
-Every command that removes or revokes something asks first, and every one of them takes `--yes` to skip the question. With stdin not a terminal and no `--yes`, the command stops rather than assuming: `workflows rm`, `brain rm`, `guidelines rm`, `tools disconnect`, and `tools call` on a write tool.
+Every command that removes or revokes something asks first, and every one of them takes `--yes` to skip the question. With stdin not a terminal and no `--yes`, the command stops rather than assuming: `workflows delete`, `brain rm`, `guidelines rm`, `tools disconnect`, and `tools call` on a write tool.
 
 ## init
 
@@ -51,10 +51,14 @@ Scaffolds a store, asks for a Composio API key, and prints suggested next comman
 | `px0 workflows list` | Every workflow, plus any file that fails to parse |
 | `px0 workflows show <id>` | Where its file is, what version it is on, and the file itself |
 | `px0 workflows validate [id]` | Check frontmatter, tools, guidelines, and cron without running anything |
-| `px0 workflows rm <id>` | Remove, keeping its history |
+| `px0 workflows delete <id>` | Remove, keeping its history |
 | `px0 workflows rename <id> <new-id>` | Rename the file and rewrite its `id` |
 | `px0 workflows copy <id> <new-id>` | Fork a workflow to a new id |
 | `px0 workflows disable <id>` / `enable <id>` | Stop it firing, or let it fire again |
+| `px0 workflows recipes` | Sentences to start an interview from, when the page is blank |
+| `px0 workflows health [id]` | What a workflow's own runs say about it |
+| `px0 workflows improve [id]` | Revise a workflow from what its runs actually did |
+| `px0 workflows replay <id>` | Run its instructions against inputs a past run already had |
 
 **`new`** - `--yes` skips every prompt, `--id <id>` names it directly, `--no-clarify` skips the clarifying questions, `--no-discover` restricts it to curated tools, `--from-file <path>` reads the description from a file. See [Build a workflow](/workflows/build).
 
@@ -64,7 +68,75 @@ Scaffolds a store, asks for a Composio API key, and prints suggested next comman
 
 **`validate`** - `--json` prints one object per workflow with its errors. Exits `1` if anything is invalid, so it works in a pre-commit hook or CI.
 
+**`health`** - `--since <age>` narrows the window, `--fix` applies the repairs px0 can make itself (one confirmation each), `--yes` skips those confirmations, `--json` prints the whole report. No model call and no network.
+
+**`improve`** - `--since <age>` narrows what it learns from, `--dry-run` shows the proposal and applies none of it, `--show-evidence` prints exactly what the model would be given and makes no model call, `--yes` skips every prompt, plus `--no-clarify` and `--no-discover` for the rebuild.
+
+**`replay`** - `--run <id>` picks the captured run (default the most recent), `--against <file>` compares alternative instructions, `--fixtures` lists what has been captured, `--forget` deletes them.
+
+See [Improving a workflow](/workflows/improve).
+
 See [Workflow files](/workflows/anatomy) for the full frontmatter reference.
+
+## ask
+
+```bash
+px0 ask ["<question>"] [--route ROUTE] [--explain] [--k N] [--yes] [--json]
+px0 ask [--continue] [--no-remember]
+```
+
+Routes one question to memory, your brain, a workflow, a single read-only tool, or a plain answer, and prints which it chose. With no question and a terminal, it opens a conversation instead.
+
+`--route` pins the destination (`memory`, `brain`, `workflow`, `tool`, `answer`). `--explain` prints the decision and stops. `--continue` carries on the last conversation; `--no-remember` skips the offer to keep what it taught px0. A workflow that can write is confirmed by name before `ask` will run it, unless `--yes`.
+
+Flat rather than under an entity, for the same reason `status` is: it acts across every group, and there is no single noun to put in front of it. `px0 brain ask` still exists and still means the narrow, brain-only thing. See [Ask](/ask/overview).
+
+## approvals
+
+| Command | What it does |
+| :--- | :--- |
+| `px0 approvals` / `px0 approvals list` | Drafted write calls waiting for a decision, oldest first |
+| `px0 approvals show <id>` | Exactly what one call would send, and the output that prompted it |
+| `px0 approvals edit <id>` | Change the arguments before sending |
+| `px0 approvals approve <id>` | Send it, with the arguments you read |
+| `px0 approvals reject <id>` | Throw the draft away |
+| `px0 approvals purge` | Delete resolved approvals past retention |
+
+**`list`** - `--all` includes resolved ones, `--workflow <id>` narrows to one workflow.
+
+**`edit`** - `--set KEY=VALUE` (repeatable) changes one argument; omit it to open the arguments in `$EDITOR` as JSON. `--note <why>` records why.
+
+**`approve`** - `--yes` skips the confirmation. **`reject`** - `--reason <why>`, which `px0 workflows improve` later reads. **`purge`** - `--days N` overrides the retention window.
+
+See [Approvals](/approvals/overview).
+
+## inbox
+
+| Command | What it does |
+| :--- | :--- |
+| `px0 inbox [list]` | What your scheduled workflows delivered, newest first |
+| `px0 inbox read [id]` | Read one and mark it read; with no id, the oldest unread |
+| `px0 inbox archive <id>` | Keep it but stop listing it |
+| `px0 inbox clear` | Delete what you have read |
+
+**`list`** - `--all` includes what you have read, `--workflow <id>` narrows to one workflow. **`clear`** - `--all` deletes unread entries too.
+
+See [Inbox](/runs/inbox).
+
+## memory
+
+| Command | What it does |
+| :--- | :--- |
+| `px0 memory [list]` | Everything px0 remembers about you; a pinned memory is marked `*` |
+| `px0 memory add "<text>"` | Tell px0 something to remember |
+| `px0 memory show <name>` | One memory in full |
+| `px0 memory search "<query>"` | What px0 remembers about something |
+| `px0 memory suggest` | What it thinks it should remember, from your corrections |
+| `px0 memory forget <name>` | Remove one. Its history stays |
+
+**`add`** - `--kind {fact,preference,person,project,place}`, `--subject <what>`, `--pin` to always include it. **`suggest`** - `--yes` keeps all of them without asking.
+
+See [Memory](/memory/overview).
 
 ## tools
 
@@ -84,6 +156,8 @@ See [Workflow files](/workflows/anatomy) for the full frontmatter reference.
 **`call`** - `--arg KEY=VALUE` (repeatable) passes arguments, `--yes` skips the confirmation a write tool asks for.
 
 **`connect`** - `--reconnect` drops the existing authorization first. **`disconnect`** - `--yes` skips the confirmation. **`refresh`** - `--forget` drops the cache instead of re-reading it.
+
+A tool declared in `tools/*.toml` may name the environment variables it needs with `env = ["DEPLOY_TOKEN"]`. Declaring any narrows what the command can see to `PATH`, `HOME`, and the ones named, so a token meant for one tool is not handed to every other tool a workflow can reach. A declared variable that is not set is refused before the command runs.
 
 See [Tools](/tools/catalogue) and [Connections](/tools/connections).
 
@@ -137,8 +211,17 @@ A claim id is `<file>#<slug>`, for example `commit-style.md#summary-line`. There
 | `px0 runs cancel <run-id>` | Stop a run in flight; `--force` sends `SIGKILL` |
 | `px0 runs prune` | Delete logs and records past retention; `--dry-run` to preview |
 | `px0 runs open <run-id>` | What it produced, reading the file as it is now |
+| `px0 runs mark <run-id>` | Say whether a run's output was any good |
+| `px0 runs events <run-id>` | The run's structured event stream, one line per thing that happened |
+| `px0 runs stats` | Runs rolled up by workflow |
 
-`list` takes `--workflow <id>`, `--failed`, `--since <age>` (`12h`, `7d`, `2w`), `--running`, and `--json`. `px0 runs` with no terminal falls back to the plain listing, and only the current store's runs are listed. See [Browse runs](/runs/browse).
+`list` takes `--workflow <id>`, `--failed`, `--since <age>` (`12h`, `7d`, `2w`), `--running`, and `--json`. `px0 runs` with no terminal falls back to the plain listing, and only the current store's runs are listed.
+
+**`mark`** - `--good [NOTE]`, `--bad [NOTE]`, or `--clear`, with `--note` as an alternative way to attach the sentence. The note is what makes a mark worth having: "bad" says a run was wrong, "it missed the two PRs I reviewed" says how.
+
+**`stats`** - `--since <age>` narrows the window, `--json` prints the full rollup.
+
+See [Browse runs](/runs/browse).
 
 ## daemon
 
@@ -172,8 +255,9 @@ A claim id is `<file>#<slug>`, for example `commit-style.md#summary-line`. There
 | `px0 store import <dir>` | Load an exported store into this one |
 | `px0 store path` | Where the store is |
 | `px0 store verify` | Check the store's own internal consistency |
+| `px0 store sync <dir>` | Bring this store and a shared folder into line |
 
-`export` strips secrets: the Composio key is blanked in the exported `config.toml`, and its version history is dropped from the export so the key is not recoverable from the history blobs either. `import` takes `--merge` to add what is missing and keep everything already here, or `--force` to let the import win on a collision - without either, importing into an existing store stops rather than silently overwriting. See [The store](/reference/store).
+`export` strips secrets: the Composio key is blanked in the exported `config.toml`, and its version history is dropped from the export so the key is not recoverable from the history blobs either. `import` takes `--merge` to add what is missing and keep everything already here, or `--force` to let the import win on a collision - without either, importing into an existing store stops rather than silently overwriting. **`sync`** - `--dry-run` says what would move, `--pull` takes changes without sending any, `--push` sends without taking. Content merges file by file; the version history stays put, because it is a SQLite database and pointing a folder-syncing tool at it is how it gets corrupted. A file changed in both places is kept beside yours rather than overwritten. See [The store](/reference/store).
 
 ## config
 

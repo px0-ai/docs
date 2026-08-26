@@ -41,11 +41,14 @@ Each of these is one sentence you type into `px0 workflows new`, and each become
 
 ## How it fits together
 
+- **Ask** is the front door: `px0 ask` routes a question to whatever can answer it, and remembers what you correct.
 - **Workflows** are the unit of work: Markdown files with YAML frontmatter, generated from your description and editable by hand.
 - **Tools** are how a workflow reaches outside px0. Most route through Composio, and apps authorize themselves the first time a workflow needs one; a few reach this machine directly - a file, a shell command, a URL.
 - **Guidelines** are your conventions, inlined verbatim into prompts so output comes back in your voice.
+- **Memory** is what px0 knows about you, accumulated from your corrections and carried into every run.
 - **Brain** is the library of what you have read and kept, searchable and askable.
-- **Runs** are the record of everything px0 did, so any output can be traced back to its inputs.
+- **Runs** are the record of everything px0 did, so any output can be traced back to its inputs - and what px0 reads to say what is wrong with a workflow.
+- **Approvals** hold anything that would speak in your name until you have read exactly what it says.
 
 <Note>
   px0 has no model backend of its own. It shells out to a coding agent CLI you already sign into - `claude`, `gemini`, `pi`, or `opencode` - and reuses that CLI's own login, model choice, and rate limits. [What leaves your machine](/reference/privacy) spells out exactly what that means for your data.

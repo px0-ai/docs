@@ -43,11 +43,13 @@ Avoid repeating anything already covered in {{prior_digests}}.
 | `guidelines` | list | Guideline filenames, inlined verbatim into the prompt. |
 | `inputs` | list | Resolved before the prompt runs. See below. |
 | `tools` | list | What the model may call during the run. |
-| `output` | map | `target: stdout`, or `target: file` with a `path`. |
+| `output` | map | `target: stdout`, `target: file` with a `path`, or `target: inbox`. `inbox: true` also delivers a file output to your inbox. |
 | `timeout` | duration | Wall-clock cap on the run. Defaults to `120s`; accepts `ms`, `s`, `m`, `h`. Overridden for one run by `--timeout`. |
 | `retry` | map | `{max_attempts: N, backoff_seconds: S}`. Each attempt writes its own run record; the cap is 10. |
 | `on_failure` | map | `{notify: desktop\|tool\|none, channel: <tool id>, target: <where>}`. Overrides the `notify.*` config for this workflow alone. |
-| `pipeline` | list | Workflow ids to run in sequence instead of a prompt. See below. |
+| `pipeline` | list | Workflow ids to run in sequence instead of a prompt, or mappings with a `when:`. See below. |
+| `confirm` | bool or list | `true` holds every write this workflow makes for approval; a list names only some. Overrides `tools.confirm_writes` in both directions. |
+| `capture` | bool | Keep what this run's inputs resolved to, so a revision can be replayed against the same data. Overrides `runs.capture_inputs`. |
 
 `description` and `request` are not the same thing, and the distinction matters when you come back to a workflow months later. `request` is your words; `description` is the model's normalization of them.
 
@@ -182,9 +184,33 @@ Three constraints govern `path`, and the reason for all of them is that the path
 - **Only three placeholders are supported:** `{date}`, `{datetime}`, and `{time}`. Both `{date}` and `{{date}}` styles work, since a plan that picked up the body's `{{...}}` habit would otherwise produce a filename with literal braces in it. Any other placeholder is an error, not a filename. The default when `path` is omitted is `output/output-{date}.md`.
 - **Concurrent writes are serialized** with a store-wide lock, so two runs targeting the same path cannot interleave.
 
+```yaml
+output: {target: inbox}
+output: {target: file, path: "digests/pr-{date}.md", inbox: true}
+```
+
 <Note>
-  A workflow with `trigger.schedule` must use `target: file`. Nobody is watching stdout when a scheduled run fires, so px0 rejects that combination at validation time instead of dropping the output.
+  A workflow with `trigger.schedule` or `trigger.watch` must use `target: file` or `target: inbox`. Nobody is watching stdout when a scheduled run fires, so px0 rejects that combination at validation time instead of dropping the output.
 </Note>
+
+`target: inbox` delivers the output to [your inbox](/runs/inbox) rather than to a file. `inbox: true` alongside a file target does both - the file is written, and the inbox tells you it exists. Scheduled and watched runs deliver automatically unless `inbox: false` says otherwise.
+
+## Holding a write back
+
+Anything that speaks in your name can be drafted rather than sent:
+
+```yaml
+confirm: true            # every write this workflow makes waits for you
+```
+
+```yaml
+confirm:                 # or only these
+  - slack.post_message
+```
+
+The run still happens and still produces its output; only the call that would leave a mark waits, in [`px0 approvals`](/approvals/overview), with its arguments shown in full.
+
+Naming a tool the workflow cannot call fails validation rather than being ignored. The failure is silent in the dangerous direction - a misspelling would leave the tool you meant to hold back firing without asking.
 
 ## Pipelines
 
@@ -204,6 +230,21 @@ Each stage runs in order, piping its output into the next: every stage but the l
 
 A stage that fails aborts the pipeline, and the run is recorded as failed. Pipelines cannot nest - a stage that is itself a pipeline is a validation error, which keeps the run graph one level deep and legible.
 
+### Skipping a stage
+
+A stage can say when it should run:
+
+```yaml
+pipeline:
+  - find-new-errors
+  - workflow: open-tickets
+    when: has_output
+```
+
+`always` (the default), `has_output`, and `no_output` - three conditions, all facts about the previous stage's output that px0 can check itself. Anything richer would be a small language living in frontmatter, and the place for judgement about what to do next is a workflow body, which is written in English and read by a model.
+
+A stage whose condition is not met is **skipped, not failed**, and the text it would have received passes through - so "post it only if there is something to post" does not break every stage after it. A condition on the first stage fails validation: there is no previous output to test, so it can only be a mistake about which stage it belongs to.
+
 ## Validation
 
 Every run validates the file first, and the builder validates the plan before saving it. These are the checks, and each one exists because the alternative is a confusing failure much later:
@@ -214,9 +255,11 @@ Every run validates the file first, and the builder validates the plan before sa
 | Every tool in `inputs` and `tools` resolves | A typo'd slug should fail before the model runs |
 | No write tool in `inputs` | Inputs run unconditionally; posting should be a decision |
 | `trigger.schedule` parses as cron | An invalid schedule would simply never fire |
-| A scheduled workflow writes to a file | Otherwise its output goes nowhere |
-| `output.target` is `stdout` or `file`, and `file` has a `path` | No ambiguous destination |
-| Pipeline stages exist and are not themselves pipelines | Keeps the graph one level deep |
+| A scheduled workflow writes to a file or the inbox | Otherwise its output goes nowhere |
+| `output.target` is `stdout`, `file`, or `inbox`, and `file` has a `path` | No ambiguous destination |
+| Pipeline stages exist, are not themselves pipelines, and name a known `when:` | Keeps the graph one level deep and its conditions checkable |
+| Every tool in `confirm:` is one the workflow has | A misspelling would leave that tool firing without asking |
+| `trigger.timezone` names a zone this machine knows | A silent fallback to machine time fires at the wrong hour |
 | `output.path` stays under `output/` and uses known placeholders | The path can come from a model-written plan |
 
 ### A broken file does not break the rest

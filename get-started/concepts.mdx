@@ -13,13 +13,14 @@ Everything px0 knows lives in one directory, `~/.px0` by default. Set `PX0_HOME`
 | :--- | :--- | :--- |
 | `workflows/` | The jobs px0 can run, one Markdown file each | Yes |
 | `guidelines/` | Your conventions, inlined into prompts verbatim | Yes |
+| `memory/` | What px0 knows about you, one Markdown file per fact | Yes |
 | `brain/` | What you have read and kept, in `docs/`, `blogs/`, `papers/` | No |
 | `output/` | What runs produced when a workflow writes to a file | No |
 | `tools/` | Tools you declared yourself, one TOML file each | No |
 | `config.toml` | Every setting | Yes |
 | `.state/` | Indexes, version history, credentials, daemon state | Internal |
 
-The first three are ordinary Markdown you can open, edit, move, and grep. There is no database you have to go through and no compile step - edit a workflow by hand and the next run picks it up.
+The first four are ordinary Markdown you can open, edit, move, and grep. There is no database you have to go through and no compile step - edit a workflow by hand and the next run picks it up.
 
 <Note>
   `.state/` is the one folder not meant for hand-editing. It holds the retrieval index, the version manifest, `credentials.toml` (kept at mode `0600`), and the daemon's schedule state. Everything in it is either derived from your files or rebuildable.
@@ -87,6 +88,20 @@ A workflow names the guideline files it needs, and those files are inlined verba
 
 You do not write one from scratch. There is no `px0 guidelines new` - the only way a guideline gets created is that `px0 workflows new` notices a workflow leans on a convention no file covers, drafts a defensible first version from the workflow itself, shows it to you, and lists it on the workflow so every run inlines it. `px0 guidelines edit <name>` is how a draft becomes yours. See [Guidelines](/guidelines/overview).
 
+## Memory
+
+Guidelines are how you want work done. Memory is what px0 knows about **you**: that standup goes out before 09:30, that "the API repo" means one particular repository, that a person you keep mentioning is on your team.
+
+Without it every run started from nothing, and every correction had to be made again the next time. One Markdown file per fact under `memory/`, versioned like everything else, and inlined into every run within a budget so a store running for a year does not turn every prompt into a biography.
+
+You mostly will not write these by hand. When you mark a run bad, or correct px0 in a conversation, it reads what you said for the part that will still be true next month and offers to keep it. It proposes; you accept. See [Memory](/memory/overview).
+
+## Approvals
+
+A tool either changes something outside px0 or it does not, and px0 has always surfaced that difference. What it lacked was a middle setting: a way to say *draft it and ask me*.
+
+`confirm: true` on a workflow holds its write calls. The run still happens and still produces its output; only the call that would leave a mark waits, with its arguments shown in full next to the output that prompted it. Approving sends exactly what you read - it does not re-run the workflow, which would draft something else. See [Approvals](/approvals/overview).
+
 ## The brain
 
 `brain/` is the library of what you have read and kept: papers, blog posts, internal docs, video transcripts. Unlike workflows and guidelines it is not versioned, because it is bulk reference material and rebuildable from its source URL. It can be px0's own folder or any folder of Markdown you already keep - including an Obsidian vault.
@@ -106,8 +121,10 @@ That record is what makes px0 auditable. `px0 runs why <run-id>` walks the full 
 Records are stamped with the store that produced them. Since `logs.path` defaults to one directory shared by every store on the machine, that stamp is what makes `PX0_HOME` genuinely isolate history rather than showing you another store's runs.
 
 <Note>
-  A scheduled workflow writes to a file, never to stdout - nothing is watching a terminal when it fires. That is why the example above uses `output: {target: file, ...}`; px0 rejects the stdout combination at validation time.
+  A scheduled workflow writes to a file or to your [inbox](/runs/inbox), never to stdout - nothing is watching a terminal when it fires. That is why the example above uses `output: {target: file, ...}`; px0 rejects the stdout combination at validation time.
 </Note>
+
+Records are also what px0 reads about *itself*. `px0 workflows health` is arithmetic over them - it finds the tool nothing has called, the input that has resolved empty for a month, the runs that succeeded and produced nothing - and `px0 workflows improve` argues a revision from that evidence. See [Improving a workflow](/workflows/improve).
 
 ## The model backend
 

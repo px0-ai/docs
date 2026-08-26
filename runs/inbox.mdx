@@ -1,0 +1,69 @@
+---
+title: "Inbox"
+description: "What your scheduled workflows produced, somewhere you will actually look."
+---
+
+A workflow could route its output three ways, and on a schedule all three had the same problem. `stdout` goes to a terminal nobody is sitting at. `file` writes something you have to remember to open. A write tool posts somewhere else, which is fine when that somewhere is where you already look and useless when it is not.
+
+px0 did the work and then had nowhere to say so.
+
+```bash
+px0 inbox                # what arrived while you were away
+px0 inbox read           # the oldest unread
+```
+
+```
+3 waiting
+  · box_20260826-060012-5a22  PRs you reviewed this week  friday-pr-digest  2h ago
+  · box_20260826-060004-a906  Overnight alerts, triaged   alert-triage      2h ago
+  · box_20260825-180000-77c1  Sprint status               sprint-status     14h ago
+```
+
+## What gets delivered
+
+Scheduled and watched runs, by default. Manual ones do not: you were there for a manual run and have just read its output, where a nightly one produced something at 06:00 that nothing has told you about. A rehearsal never delivers - a `--dry-run` output is a sample, not news.
+
+A workflow can force either answer:
+
+```yaml
+output:
+  target: inbox          # the inbox is where this goes
+```
+
+```yaml
+output:
+  target: file
+  path: output/digest-{date}.md
+  inbox: true            # write the file *and* say it arrived
+```
+
+`inbox: false` opts a scheduled workflow out. `px0 config set inbox.auto false` turns automatic delivery off everywhere.
+
+<Note>
+An entry is small on purpose - what produced it, a preview, and where the whole thing is. The inbox is a place to triage from, not a second copy of your output.
+</Note>
+
+Its title comes from the output's own first heading, since a workflow that already writes `## PRs you reviewed this week` has said what the entry is better than any label px0 could synthesize.
+
+## Reading and clearing
+
+| Command | What it does |
+| :--- | :--- |
+| `px0 inbox` | What is waiting, newest first |
+| `px0 inbox list --all` | Include what you have already read |
+| `px0 inbox read [id]` | Read one and mark it read. With no id, the oldest unread |
+| `px0 inbox archive <id>` | Keep it but stop listing it |
+| `px0 inbox clear` | Delete what you have read. `--all` deletes unread too |
+
+Where an entry announces a file, the file is read back from disk rather than from the copy taken at delivery - so you see what is there now, which is what matters when a later run has rewritten it. An entry whose file has since been deleted falls back to its preview and says so.
+
+<Warning>
+Read and archived entries age out on `inbox.keep_days` (30 by default). **Unread entries are never dropped.** An inbox that quietly forgets what you have not looked at is worse than one that grows.
+</Warning>
+
+## Settings
+
+| Key | Default | Effect |
+| :--- | :--- | :--- |
+| `inbox.auto` | `true` | Deliver scheduled and watched runs automatically |
+| `inbox.keep_days` | `30` | How long read and archived entries are kept |

@@ -146,6 +146,51 @@ Failures are recorded, not discarded - px0 persists the record before reporting 
   </Step>
 </Steps>
 
+## Saying whether it was any good
+
+The one thing no record can infer is whether what a run produced was *worth having*. A digest that runs green every week and comes back useless looks perfect in every field px0 has.
+
+```bash
+px0 runs mark run_20260820-090031-ab12 --bad "it summarized last week, not this week"
+px0 runs mark run_20260820-090031-ab12 --good
+px0 runs mark run_20260820-090031-ab12 --clear
+```
+
+The mark is stored on the run's own record and shows in the listing as `[good]` or `[bad]`. Press `m` on a run's detail screen to do the same thing from the browser - which is where you have just read what it produced, and the only moment you know.
+
+<Tip>
+The note is the part that matters. "Bad" says a run was wrong; "it missed the two PRs I actually reviewed" says how - and that sentence is what [`px0 workflows improve`](/workflows/improve) argues from and what [`px0 memory suggest`](/memory/overview) reads for standing facts.
+</Tip>
+
+## What a run did, as data
+
+```bash
+px0 runs events run_20260820-090031-ab12
+```
+
+```
+09:00:31  run_started          workflow=post-standup  trigger=schedule  dry_run=false
+09:00:31  inputs               resolved=[{"id": "meetings", "kind": "tool", "ok": true}]
+09:00:31  prompt               prompt_chars=1840  tools_offered=["slack.post_message"]
+09:00:42  model_call           turn=1  prompt_chars=1840  output_chars=612  elapsed_seconds=10.9
+09:00:43  tool_call            turn=1  tool=slack.post_message  failed=false  arg_keys=["channel","text"]
+09:00:43  run_finished         outcome=success  duration_seconds=12.4
+```
+
+One JSON object per thing that happened. This is the machine-readable account of a run - which turn called which tool, what each cost, whether a call was allowed - and it is what `px0 workflows health` reads, rather than the raw log.
+
+<Note>
+Tool **argument names** are recorded, never their values. A tool's arguments routinely carry the content of the work - a message body, a file path, a search string - and the event stream is meant to be the part of a run that is safe to keep.
+</Note>
+
+## Rolled up by workflow
+
+```bash
+px0 runs stats --since 30d
+```
+
+How many runs each workflow had, how many failed, how many you marked bad, and the median duration. Arithmetic over the records - no model call, no network. For one workflow in detail, and for what its runs say is wrong with it, see [Improving a workflow](/workflows/improve).
+
 ## How long records are kept
 
 | Setting | Default | What it governs |
@@ -154,5 +199,8 @@ Failures are recorded, not discarded - px0 persists the record before reporting 
 | `logs.retention_days_failed` | `60` | Raw logs for failed runs - kept longer, because they are the ones you come back to |
 | `logs.record_retention_days` | `365` | The run records themselves |
 | `logs.max_file_size_mb` | `20` | Single log file size cap |
+| `logs.events` | `true` | Whether the event stream is written at all; it ages out with the raw log |
 
-Retention is applied by the daemon's nightly pass. Without the daemon running, nothing is deleted.
+A run leaves three artifacts behind, and they are deliberately different things. The **record** is the run's summary, kept for a year, and is what every listing and every analysis reads. The **raw log** is the full prompt and reply text, kept for a fortnight, and is for a person reading one run. The **event stream** is the machine-readable account, kept alongside the log. Nothing derives a verdict from the raw log, because the raw log is usually gone.
+
+Retention is applied by the daemon's nightly pass. Without the daemon running, nothing is deleted. Runs that called a write tool are exempt regardless of age: what they did cannot be undone by forgetting it.

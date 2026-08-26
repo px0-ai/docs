@@ -44,8 +44,19 @@ Verifies the key against the live Composio API before storing it, and detects a 
 | Key | Type | Default | What it does |
 | :--- | :--- | :--- | :--- |
 | `model.harness_cmd` | string | `claude -p` | The coding agent CLI invocation px0 uses as its model backend |
+| `model.output_format` | `auto` \| `text` \| `json` | `auto` | Whether to ask the harness for a structured envelope around its reply |
+| `model.verbose` | bool | `false` | Ask the harness to narrate what it is doing, keeping its stderr in the run log |
+| `model.agent_loop` | `builtin` \| `auto` \| `mcp` | `builtin` | Who drives the tool calls |
 
 A known harness name (`claude`, `gemini`, `pi`, `opencode`) expands to its full command. Any other literal command works too - a wrapper script, a pinned path - and px0 appends the prompt as the final argument.
+
+**`model.output_format`.** A harness is another program, and only some of them report what a call cost. `auto` asks for a structured envelope wherever px0 knows the flag for that backend, which is what turns a run's token counts from px0's own estimate into the numbers the backend was actually billed - `px0 workflows health` says which it is showing you. px0 adds no flags to a command it does not recognise, because the cost of guessing wrong is every run for that backend failing; and if a backend turns out to be older than the flag, the call is retried once without it rather than failing.
+
+**`model.agent_loop`.** `builtin` is px0's own tool-call loop, capped at `runs.max_tool_turns`. `mcp` hands the workflow's tools to the harness over MCP and lets it run its own loop, which removes that cap and is what a workflow needing many steps wants. `auto` does that wherever px0 has verified flags for the configured harness and falls back otherwise. Everything px0 enforces still holds either way - the allowlist, dry-run stubbing, held-back writes, and the event stream - because in MCP mode that enforcement moves into the scoped server rather than disappearing.
+
+<Note>
+`px0 doctor` reports when `model.agent_loop` is `mcp` but the configured harness has no verified way to be handed tools, since every run with tools would otherwise fail.
+</Note>
 
 ## Brain
 
@@ -81,11 +92,16 @@ A workflow's `output.path` is always resolved inside this directory, and a path 
 | Key | Type | Default | What it does |
 | :--- | :--- | :--- | :--- |
 | `tools.allow_shell` | bool | `false` | Allow the `shell.run` tool, which executes an arbitrary local command; off by default because a workflow that can run a shell can do anything you can |
+| `tools.confirm_writes` | bool | `false` | Hold every write tool call for approval before it fires, across every workflow; a workflow's own `confirm:` overrides this in both directions |
 | `tools.file_roots` | list | `[]` | Extra directories `file.read` and `file.write` may touch, on top of the store itself; a path outside every root is refused |
 | `tools.http_timeout` | int | `20` | Seconds before `http.get` and `http.post` give up on a request |
 | `tools.max_output_bytes` | int | `20000` | Cap on how much text a local tool returns to the model, so one large file or chatty script cannot fill the prompt |
 
-See [Tools](/tools/catalogue).
+<Warning>
+`file.write` may not touch `workflows/`, `guidelines/`, `memory/`, `.state/`, or `config.toml`, however broad `tools.file_roots` is. The store is an allowed root - that is what lets a workflow write into `output/` - and without a separate rule that also meant a workflow given `file.write` could rewrite its own tool allowlist to widen what it may do next run.
+</Warning>
+
+See [Tools](/tools/catalogue) and [Approvals](/approvals/overview).
 
 ## Notify
 
@@ -94,6 +110,7 @@ What happens when a scheduled run fails. A workflow's own `on_failure` block ove
 | Key | Type | Default | What it does |
 | :--- | :--- | :--- | :--- |
 | `notify.on_failure` | string | `""` | `"desktop"` raises a local notification, `"tool"` sends through `notify.channel`, `"none"` (the default) stays silent |
+| `notify.on_approval` | string | `""` | How you hear that an unattended run drafted a write and is waiting; empty follows `notify.on_failure` |
 | `notify.channel` | string | `""` | Tool id used when `notify.on_failure` is `"tool"`, e.g. `slack.post_message` or `gmail.send_message` |
 | `notify.target` | string | `""` | Where the notification goes: a Slack channel for `slack.post_message`, an address for `gmail.send_message` |
 
@@ -101,14 +118,78 @@ See [Status](/reference/status).
 
 ## Runs
 
-How a failed run is retried. A workflow's own `retry` block overrides both.
+How a run is retried, how far it may go, and what it may spend.
 
 | Key | Type | Default | What it does |
 | :--- | :--- | :--- | :--- |
 | `runs.max_attempts` | int | `1` | How many times a run is attempted before it is recorded as failed |
 | `runs.retry_backoff_seconds` | int | `30` | Seconds before the second attempt, doubling for each attempt after |
+| `runs.max_tool_turns` | int | `12` | How many tool-call turns one run may take in px0's own loop |
+| `runs.disable_after_failures` | int | `5` | Park an unattended workflow after this many consecutive failures of the same cause; `0` lets it keep trying |
+| `runs.capture_inputs` | bool | `false` | Keep what every run's inputs resolved to, so a revision can be replayed against the same data |
+| `runs.fixture_keep_days` | int | `14` | Days a captured fixture is kept |
+| `runs.daily_budget_usd` | float | `0.0` | Stop unattended runs once the day's measured cost reaches this; `0` is off |
+| `runs.daily_token_budget` | int | `0` | The same ceiling against px0's own token estimate, for a harness that reports no costs; `0` is off |
 
 Each attempt writes its own run record, so `px0 runs list` shows the failures that led to a success rather than hiding them. The per-workflow cap is 10.
+
+**The turn ceiling.** In px0's own loop every turn resends the whole conversation, so the cost of a high ceiling is paid only by the runs that use it - where the cost of a low one was paid by every run that needed one more step and silently stopped short. `model.agent_loop = "mcp"` removes the ceiling entirely.
+
+**The budget.** Off by default: a tool that refuses to work because of a number you never set would be worse than one that spends. It stops *unattended* runs only - a command you just typed is never blocked, since you are sitting there and can see what it costs. `daily_budget_usd` is exact and needs the harness to be reporting its costs; `daily_token_budget` works against px0's own estimate for a harness that reports nothing.
+
+**Capture.** Off by default and deliberately so: a fixture is the content of your work. See [Improving a workflow](/workflows/improve).
+
+## Approvals
+
+Write calls held for a person. See [Approvals](/approvals/overview).
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `approvals.expire_days` | int | `7` | Days a drafted write stays approvable before it goes stale; `0` never expires |
+| `approvals.keep_resolved_days` | int | `30` | Days to keep approvals that were sent, rejected, or expired |
+| `approvals.reply_tool` | string | `""` | Read-only tool polled for replies that approve or reject a drafted call |
+| `approvals.reply_args` | string | `""` | JSON arguments for that tool, e.g. `{"channel": "#ops"}` |
+| `approvals.reply_from` | list | `[]` | Who may answer by reply - usernames or addresses, comma-separated |
+| `approvals.reply_text_field` | string | `""` | Which field of the reply holds the message text; empty tries the usual names |
+| `approvals.reply_sender_field` | string | `""` | Which field holds who sent it; empty tries the usual names |
+
+<Warning>
+`approvals.reply_from` is required alongside `approvals.reply_tool`. Without it, a reply channel is an approval queue that anyone able to post there could empty, so px0 refuses to run half-configured.
+</Warning>
+
+## Inbox
+
+Where scheduled output is delivered. See [Inbox](/runs/inbox).
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `inbox.auto` | bool | `true` | Deliver scheduled and watched runs to the inbox automatically; a workflow's own `output.inbox` overrides this |
+| `inbox.keep_days` | int | `30` | Days to keep entries you have read or archived; unread entries are never dropped |
+
+## Memory
+
+What px0 knows about you. See [Memory](/memory/overview).
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `memory.enabled` | bool | `true` | Inline what px0 remembers into every run's prompt; off keeps the folder and stops reading it |
+| `memory.budget_chars` | int | `4000` | How much remembered text a single run may inline |
+
+## Ask
+
+Conversations. See [Ask](/ask/overview).
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `ask.session_days` | int | `7` | Days a conversation is kept under `.state/` before it is pruned; `0` keeps them indefinitely |
+
+## Schedule
+
+| Key | Type | Default | What it does |
+| :--- | :--- | :--- | :--- |
+| `schedule.timezone` | string | `""` | Zone every schedule is read against, e.g. `Asia/Kolkata`; a workflow's own `trigger.timezone` wins |
+
+Empty follows the machine, which is right until the machine travels or the clocks change. See [Scheduling](/workflows/schedule).
 
 ## Retrieval
 
@@ -130,6 +211,7 @@ See [Retrieval backends](/brain/retrieval).
 | `logs.retention_days_failed` | int | `60` | Days to keep logs for failed runs |
 | `logs.record_retention_days` | int | `365` | Days to keep run records, which outlive the logs |
 | `logs.max_file_size_mb` | int | `20` | Single log file rotation size cap |
+| `logs.events` | bool | `true` | Write each run's structured event stream, which `px0 runs events` prints and `px0 workflows health` reads; ages out with the run logs |
 
 Failed logs are kept four times longer than successful ones, because those are the ones you come back to. Retention is applied by the daemon's nightly pass, or on demand with `px0 runs prune`.
 

@@ -1,0 +1,143 @@
+---
+title: "Improving a workflow"
+description: "What a workflow's own runs say about it, and how to act on it."
+---
+
+A workflow you wrote once is a workflow that was right once. The sources moved, the format drifted, the tool you allowlisted stopped being called. px0 keeps enough about every run to say what has happened since - and it does that in two halves, one that needs no model at all and one that does.
+
+## What the runs say, computed not guessed
+
+```bash
+px0 workflows health                    # a row per workflow
+px0 workflows health friday-pr-digest   # one in detail
+```
+
+This is arithmetic over your own run records. No model call, no network. Every finding is one you could check by reading the same records yourself, which is what makes it safe to hand to `improve` as evidence - a proposal is only as honest as the numbers under it.
+
+```
+health friday-pr-digest
+  · runs      8 live
+  · outcome   6 ok, 2 failed
+  · duration  12.0s median, 61.0s slowest
+  · tokens    ~33,600 (estimated, not measured)
+  · tools     github.list_my_prs, slack.post_message
+
+  problem  input 'prs' has resolved to nothing on all 8 run(s) that recorded it -- the prompt is being built around a hole
+    px0 workflows show friday-pr-digest
+  problem  2 run(s) marked bad: it summarized last week, not this week
+    px0 workflows improve friday-pr-digest
+  note     1 allowlisted tool(s) never called in 8 run(s): notion.create_page
+    -> px0 can fix this: drop notion.create_page from this workflow's tools
+```
+
+It finds the things that are invisible from any single run:
+
+| Finding | What it means |
+| :--- | :--- |
+| `failing` | Runs that failed, grouped by cause. Five failures of one thing read as one finding |
+| `empty_output` | A run that succeeded and wrote nothing. Green in every listing, and useless |
+| `success_despite_tool_errors` | Success recorded with every tool call erroring - the output was written from nothing |
+| `tool_refused` | The model reached for a tool this workflow may not use |
+| `tool_erroring` | One tool failing a third of its calls or more. Now and then is the network |
+| `dead_tools` | Allowlisted tools nothing has ever called. Each is prompt you pay for on every run |
+| `timing_out` | Runs the clock killed, with the timeout that would have survived them |
+| `turn_cap` | Runs that used every tool-call turn: the instructions ask for more steps than a run has |
+| `input_always_empty` | An input that resolves to nothing every time |
+| `marked_bad` | Runs you marked bad, with your notes. The strongest signal there is |
+| `parked` | px0 disabled this after it kept failing the same way |
+| `spans_versions` | The window mixes a workflow with the one it replaced |
+
+Dry runs are counted separately and excluded from every rate: a rehearsal never calls a write tool, so counting one in a tool's error rate would be counting a call that never happened.
+
+### Repairs px0 will make itself
+
+```bash
+px0 workflows health friday-pr-digest --fix
+```
+
+Only two edits are ever made here, and both are narrow enough to describe in a sentence before you agree to them: **dropping a tool nothing has called**, which can only ever reduce what a workflow may do, and **raising a timeout** runs kept hitting. Both touch frontmatter only, never the instruction body, never adding a tool, never reaching a model. Each is a versioned change, so `px0 changes revert` undoes it.
+
+## Telling px0 when the output was wrong
+
+The one thing no record can infer is whether what a run produced was any *good*. A digest that runs green every week and comes back useless looks perfect in every field px0 has.
+
+```bash
+px0 runs mark run_20260826-090000-a1b2 --bad "it summarized last week, not this week"
+```
+
+One sentence, stored on the run, shown in `px0 runs` as `[bad]`. It is what the next step actually learns from - and what [`px0 memory suggest`](/memory/overview) reads for standing facts.
+
+## Having px0 revise the workflow
+
+```bash
+px0 workflows improve friday-pr-digest
+```
+
+px0 prints the evidence first, then asks the model what the workflow should say instead, then shows you the answer as a diff against the request **you** wrote - before anything is applied.
+
+What it proposes is a new *request*, not a rewritten file. A workflow's tools, inputs, and guideline list all follow from its request, so a model that rewrote the file directly would leave frontmatter describing a workflow that no longer exists. The revision is applied through exactly the same rebuild [`px0 workflows edit`](/workflows/build) performs.
+
+Three rules hold, each because the obvious alternative is worse:
+
+- **Nothing is applied without being shown.** An improvement pass that quietly rewrote a scheduled workflow would be the one place px0 stopped listing what it was about to do.
+- **Tools are never widened on a model's say-so.** A proposal may argue for a new tool, and that argument is printed, but the tool only arrives through the same confirm-and-authorize path `px0 workflows new` uses.
+- **A complaint about form belongs in a guideline.** "The summary is too long" is not a fact about one workflow; it is a standard. Guideline edits are confirmed separately and **appended** - your own wording above them is never touched.
+
+<Tip>
+`px0 runs mark` is where the signal comes from. Without a marked run, a proposal has only execution telemetry to reason over - it will optimize what it can see, like errors and latency, while the real defect goes untouched. When every run executed cleanly and none is marked, px0 says so and asks whether you want a proposal anyway.
+</Tip>
+
+`--dry-run` shows a proposal and applies none of it. `--show-evidence` prints exactly what the model would be given, as JSON, and makes no model call at all - if you disagree with a proposal, that is what it was reasoning over.
+
+## Checking a revision before trusting it
+
+A revision used to mean waiting until Friday to find out whether it helped. The reason it could not be checked sooner is that a workflow run twice compares two different worlds - the pull requests moved, the inbox filled.
+
+Let a workflow keep what it read:
+
+```yaml
+capture: true
+```
+
+Then both versions can be run against the same inputs:
+
+```bash
+px0 workflows replay friday-pr-digest --fixtures                  # what has been kept
+px0 workflows replay friday-pr-digest --against ./new-body.md     # both, side by side
+```
+
+```
+  changed: +2 / -2 lines (100% of the original)
+
+    @@ -1,4 +1,4 @@
+      ## PRs this week
+
+    - - one
+    - - two
+    + 1. two
+    + 2. one
+```
+
+The churn figure sits above the diff because the first question about a revision is whether it changed anything at all - and one that rewrites every line of a working digest is worth looking at twice, however good its reasoning read. `px0 workflows improve` offers this in line, where a fixture exists, before you are asked to accept anything.
+
+Neither the input tools nor the run's own tools are called during a replay. The comparison is about what a workflow *says*; letting it act would both change the world and put back the variance the fixture removes.
+
+<Warning>
+Capture is off by default and deliberately so. A fixture is the content of your work - the emails, the diffs, the messages. Fixtures live under `.state/fixtures/`, are excluded from both `px0 store export` and `px0 store sync`, and age out on `runs.fixture_keep_days` (14 days).
+</Warning>
+
+One fixture is one data point. Replay a second captured run before trusting a difference.
+
+## When px0 gives up
+
+An unattended workflow that fails the same way `runs.disable_after_failures` times in a row (5 by default) is parked, and you are told through the same channel failures use. A dead connector otherwise means an hourly failure and an hourly notification for the rest of the week, with nothing learning that nothing has changed.
+
+It requires the *same* cause each time - a workflow failing three different ways is one to look at, not one stuck. A manual run never trips it: you are there, reading the error. The park is a versioned change, and `px0 workflows enable` is the ordinary way back.
+
+## Settings
+
+| Key | Default | Effect |
+| :--- | :--- | :--- |
+| `runs.disable_after_failures` | `5` | Park an unattended workflow after this many identical failures. `0` keeps trying |
+| `runs.capture_inputs` | `false` | Keep what every run's inputs resolved to. A workflow's `capture:` overrides it |
+| `runs.fixture_keep_days` | `14` | How long a captured fixture is kept |

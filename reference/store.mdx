@@ -18,6 +18,7 @@ The store is designed to be a *bare directory*. It works with nothing else insta
 ~/.px0/
 ├── workflows/          the jobs px0 can run
 ├── guidelines/         how you work
+├── memory/              what px0 knows about you
 ├── brain/               what you have read and kept
 │   ├── blogs/
 │   ├── docs/
@@ -33,17 +34,22 @@ The store is designed to be a *bare directory*. It works with nothing else insta
 | :--- | :--- | :--- |
 | `workflows/` | Yes | No - these are yours |
 | `guidelines/` | Yes | No - these are yours |
+| `memory/` | Yes | No - these are yours |
 | `config.toml` | Yes | Defaults only |
 | `brain/` | No | Yes, from source URLs |
 | `output/` | No | Yes, by rerunning |
 | `tools/` | No | No - these are yours too |
 | `.state/` | n/a | Mostly, but history lives here |
 
-The first three are the ones that would hurt to lose. They are also the smallest - plain Markdown and TOML, easy to back up anywhere.
+The first four are the ones that would hurt to lose. They are also the smallest - plain Markdown and TOML, easy to back up anywhere.
+
+`memory/` is versioned for a reason the others are not: px0 writes to it on its own initiative. What an assistant has come to believe about you should be as reviewable and as revertible as anything you wrote yourself. See [Memory](/memory/overview).
 
 ## Inside `.state/`
 
 You do not need to touch any of this, but knowing what it holds makes `px0 doctor` output legible.
+
+Two of these are not runtime internals in the usual sense. `approvals/` and `inbox/` hold things waiting on **you** rather than on px0, which is why neither is rebuildable and why the nightly pass never drops an unread inbox entry or a pending approval.
 
 | Path | What it holds | Rebuildable |
 | :--- | :--- | :--- |
@@ -59,6 +65,11 @@ You do not need to touch any of this, but knowing what it holds makes `px0 docto
 | `running/` | One file per run in flight, holding its pid so `px0 runs cancel` can signal it | Yes |
 | `catalogue.json` | Composio tool definitions discovered by `px0 workflows new`, so a workflow keeps working offline | Yes - `px0 tools refresh` |
 | `lock` | Process lock, so two px0 runs cannot write at once | Yes |
+| `approvals/` | Write calls drafted and waiting for a decision | No - these are decisions nobody has made yet |
+| `inbox/` | What scheduled runs delivered | No - an unread entry is the only copy of the news |
+| `sessions/` | Conversations in progress | Yes - what mattered from one is in `memory/` |
+| `fixtures/` | What captured runs read, for `px0 workflows replay` | Yes - capture another run |
+| `sync-id` | This store's identity for `px0 store sync` | Yes, at a cost - a new id makes the next sync see every file as a conflict |
 
 The retrieval index is derived data and is dropped and rebuilt whenever its schema changes - for instance when the tokenizer or a column changes between releases. `px0 doctor` reports an empty index and names `px0 brain reindex`.
 
@@ -122,13 +133,28 @@ Point `logs.path` somewhere per-store if you would rather they not share a direc
 
 ## Sharing and syncing
 
-Because it is a plain directory, syncing a store through Dropbox, iCloud, Syncthing, or a private git repository all work. Two cautions worth taking seriously:
-
 <Warning>
-  `.state/credentials.toml` holds your app secrets. Exclude it from anything you sync or commit, or make sure the destination is encrypted and private. See [What leaves your machine](/reference/privacy).
+  **Do not point Dropbox, iCloud, or Syncthing at the store directory itself.** The version history is a SQLite database, and two machines writing it produce a file that is neither machine's history. The damage is invisible until something needs to be reverted, which is exactly when it cannot be recovered. `px0 doctor` reports when the store looks like it sits inside a syncing folder.
 </Warning>
 
-Also avoid running the daemon on two machines against the same synced store. Both would evaluate the same schedules and fire the same workflows, and a synced `schedule.json` is not a coordination mechanism.
+Use `px0 store sync` instead. It is the deliberate version of what people were doing anyway:
+
+```bash
+px0 store sync ~/Dropbox/px0-shared --dry-run   # what would move
+px0 store sync ~/Dropbox/px0-shared
+```
+
+`workflows/`, `guidelines/`, `memory/`, `brain/`, and `tools/` travel. `.state/` never does - it holds the history, credentials, the retrieval index, and every queue, all of them either machine-specific or unmergeable. The shared directory is created for you on the first sync if its parent exists; a path whose parent is also missing is refused, because that is what a typo looks like.
+
+Three rules, each because the alternative loses work:
+
+- **Nothing is overwritten silently.** A file changed on both sides is written beside yours as `<name>.md.conflict-<machine>` and reported. Two versions are two decisions, and px0 is not in a position to know which one you meant. The marker sits after the extension on purpose, so px0 never loads a conflict copy as a second workflow carrying the same `id`.
+- **A sync never deletes.** A file missing on one side may be one that side has not pulled yet, and treating absence as deletion is how a sync loses work.
+- **The remote is just a directory.** Whatever puts it on both machines is your business and none of px0's.
+
+Once both sides hold the same bytes - because you resolved a conflict, or because they converged - that is recorded as agreement, so the next ordinary edit syncs rather than reporting the same conflict again.
+
+`.state/credentials.toml` is never synced, and neither are captured fixtures. Avoid running the daemon on two machines against the same shared folder: both would evaluate the same schedules and fire the same workflows.
 
 ## Backing up
 
